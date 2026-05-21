@@ -1,0 +1,13 @@
+location            = "centralindia"
+resource_group_name = "rg-stackguard-prod"
+aks_cluster_name    = "aks-stackguard-prod"
+dns_prefix          = "stackguard-prod"
+kubernetes_version  = null
+node_count          = 1
+node_vm_size        = "Standard_D16s_v5"
+
+tags = {
+  environment = "prod"
+  owner       = "platform-team"
+  region      = "india"
+}

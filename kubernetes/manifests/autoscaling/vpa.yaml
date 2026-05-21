@@ -1,0 +1,51 @@
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: stackguard-dashboard-vpa
+  namespace: ${STACKGUARD_NAMESPACE}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stackguard-dashboard
+  updatePolicy:
+    updateMode: "${VPA_UPDATE_MODE}"
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: stackguard-ai-vpa
+  namespace: ${STACKGUARD_NAMESPACE}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stackguard-ai
+  updatePolicy:
+    updateMode: "${VPA_UPDATE_MODE}"
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: stackguard-server-vpa
+  namespace: ${STACKGUARD_NAMESPACE}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: stackguard-server
+  updatePolicy:
+    updateMode: "${VPA_UPDATE_MODE}"
+---
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: stackguard-postgres-vpa
+  namespace: ${STACKGUARD_NAMESPACE}
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: stackguard-postgres
+  updatePolicy:
+    updateMode: "${VPA_UPDATE_MODE}"

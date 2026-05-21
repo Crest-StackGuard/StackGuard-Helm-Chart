@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: ai-data-pvc
+  namespace: ${STACKGUARD_NAMESPACE}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ${STACKGUARD_STORAGE_CLASS}
+  resources:
+    requests:
+      storage: ${AI_DATA_SIZE}

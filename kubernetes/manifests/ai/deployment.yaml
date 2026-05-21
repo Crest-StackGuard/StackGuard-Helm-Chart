@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackguard-ai
+  namespace: ${STACKGUARD_NAMESPACE}
+  annotations:
+    stackguard.io/horizontal-scaling: "disabled"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stackguard-ai
+  template:
+    metadata:
+      labels:
+        app: stackguard-ai
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: ai
+          image: ${AI_IMAGE}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          env:
+            - name: STACKGUARD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_SECRET
+            - name: STACKGUARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_DATABASE_URL
+            - name: STACKGUARD_DASHBOARD_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_DASHBOARD_URL
+            - name: STACKGUARD_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_API_URL
+          resources:
+            requests:
+              cpu: "${AI_REQ_CPU}"
+              memory: "${AI_REQ_MEM}"
+            limits:
+              cpu: "${AI_LIMIT_CPU}"
+              memory: "${AI_LIMIT_MEM}"
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: ai-data
+              mountPath: /data
+      volumes:
+        - name: ai-data
+          persistentVolumeClaim:
+            claimName: ai-data-pvc

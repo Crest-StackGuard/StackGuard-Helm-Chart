@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-ai
+  namespace: ${STACKGUARD_NAMESPACE}
+spec:
+  type: ${AI_SERVICE_TYPE}
+  selector:
+    app: stackguard-ai
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

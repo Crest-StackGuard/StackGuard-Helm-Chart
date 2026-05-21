@@ -1,0 +1,12 @@
+project_id         = "your-gcp-project-id"
+region             = "asia-south1"
+cluster_name       = "gke-stackguard-prod"
+kubernetes_version = null
+node_count         = 1
+node_machine_type  = "n2-standard-16"
+
+labels = {
+  environment = "prod"
+  owner       = "platform-team"
+  region      = "india"
+}

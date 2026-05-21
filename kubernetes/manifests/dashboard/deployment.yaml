@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackguard-dashboard
+  namespace: ${STACKGUARD_NAMESPACE}
+  annotations:
+    stackguard.io/horizontal-scaling: "disabled"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stackguard-dashboard
+  template:
+    metadata:
+      labels:
+        app: stackguard-dashboard
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: dashboard
+          image: ${DASHBOARD_IMAGE}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 4000
+              name: http
+          env:
+            - name: STACKGUARD_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_API_URL
+            - name: STACKGUARD_AI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_AI_URL
+          resources:
+            requests:
+              cpu: "${DASHBOARD_REQ_CPU}"
+              memory: "${DASHBOARD_REQ_MEM}"
+            limits:
+              cpu: "${DASHBOARD_LIMIT_CPU}"
+              memory: "${DASHBOARD_LIMIT_MEM}"
+          livenessProbe:
+            tcpSocket:
+              port: 4000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: dashboard-data
+              mountPath: /data
+      volumes:
+        - name: dashboard-data
+          persistentVolumeClaim:
+            claimName: dashboard-data-pvc

@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackguard-server
+  namespace: ${STACKGUARD_NAMESPACE}
+  annotations:
+    stackguard.io/horizontal-scaling: "disabled"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stackguard-server
+  template:
+    metadata:
+      labels:
+        app: stackguard-server
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: server
+          image: ${SERVER_IMAGE}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: STACKGUARD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_SECRET
+            - name: STACKGUARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_DATABASE_URL
+            - name: STACKGUARD_AI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_AI_URL
+            - name: STACKGUARD_DASHBOARD_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_DASHBOARD_URL
+          resources:
+            requests:
+              cpu: "${SERVER_REQ_CPU}"
+              memory: "${SERVER_REQ_MEM}"
+            limits:
+              cpu: "${SERVER_LIMIT_CPU}"
+              memory: "${SERVER_LIMIT_MEM}"
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: server-data
+              mountPath: /scans
+      volumes:
+        - name: server-data
+          persistentVolumeClaim:
+            claimName: server-data-pvc

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-server
+  namespace: ${STACKGUARD_NAMESPACE}
+spec:
+  type: ${SERVER_SERVICE_TYPE}
+  selector:
+    app: stackguard-server
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

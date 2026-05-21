@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stackguard-postgres
+  namespace: ${STACKGUARD_NAMESPACE}
+  annotations:
+    stackguard.io/horizontal-scaling: "disabled"
+spec:
+  serviceName: stackguard-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stackguard-postgres
+  template:
+    metadata:
+      labels:
+        app: stackguard-postgres
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: postgres
+          image: ${POSTGRES_IMAGE}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: POSTGRES_PASSWORD
+          resources:
+            requests:
+              cpu: "${POSTGRES_REQ_CPU}"
+              memory: "${POSTGRES_REQ_MEM}"
+            limits:
+              cpu: "${POSTGRES_LIMIT_CPU}"
+              memory: "${POSTGRES_LIMIT_MEM}"
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: ${STACKGUARD_STORAGE_CLASS}
+        resources:
+          requests:
+            storage: ${POSTGRES_STORAGE_SIZE}

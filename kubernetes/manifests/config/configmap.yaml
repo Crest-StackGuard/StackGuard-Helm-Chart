@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stackguard-config
+  namespace: ${STACKGUARD_NAMESPACE}
+data:
+  STACKGUARD_DASHBOARD_URL: "${STACKGUARD_DASHBOARD_URL}"
+  STACKGUARD_API_URL: "${STACKGUARD_API_URL}"
+  STACKGUARD_AI_URL: "${STACKGUARD_AI_URL}"
