@@ -32,7 +32,7 @@ variable "node_count" {
 }
 
 variable "node_machine_type" {
-  description = "GCE machine type for nodes (vertical sizing control). Default fits 10 vCPU / 20 GiB workload total."
+  description = "GCE machine type for nodes (vertical sizing control)."
   type        = string
   default     = "n2-standard-16"
 }

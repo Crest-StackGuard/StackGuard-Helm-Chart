@@ -37,9 +37,9 @@ variable "node_count" {
 }
 
 variable "node_vm_size" {
-  description = "AKS node VM size (vertical sizing control). Default fits 10 vCPU / 20 GiB workload total."
+  description = "AKS node VM size (vertical sizing control). Default D16s_v3 (16 vCPU) fits full Stackguard workload; uses Dsv3 family (not Dsv5)."
   type        = string
-  default     = "Standard_D16s_v5"
+  default     = "Standard_D16s_v3"
 }
 
 variable "tags" {

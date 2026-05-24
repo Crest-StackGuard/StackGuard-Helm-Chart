@@ -27,7 +27,7 @@ variable "node_count" {
 }
 
 variable "node_instance_type" {
-  description = "EC2 instance type for the node group (vertical sizing control). Default fits 10 vCPU / 20 GiB workload total."
+  description = "EC2 instance type for the node group (vertical sizing control)."
   type        = string
   default     = "m6i.4xlarge"
 }

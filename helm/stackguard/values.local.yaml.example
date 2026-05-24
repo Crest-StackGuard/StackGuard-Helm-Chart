@@ -1,0 +1,24 @@
+# Copy to values.local.yaml and customize. Never commit values.local.yaml.
+
+secrets:
+  stackguardSecret: "0123456789abcdef0123456789abcdef"  # openssl rand -hex 16
+  postgres:
+    password: replace-with-strong-password              # openssl rand -hex 16
+
+# Optional: set explicitly instead of auto-building from postgres settings
+# secrets:
+#   databaseUrl: postgresql://stackguard:<password>@stackguard-postgres:5432/stackguard?sslmode=disable
+
+urls:
+  dashboard: http://localhost:4000
+  api: http://localhost:8080
+  ai: http://localhost:8000
+
+# Pin image tags for production
+# images:
+#   dashboard:
+#     tag: "1.0.0"
+#   server:
+#     tag: "1.0.0"
+#   ai:
+#     tag: "1.0.0"

@@ -1,0 +1,110 @@
+{{- if .Values.server.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: server-data-pvc
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-server
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ required "global.storageClass is required" .Values.global.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.server.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackguard-server
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-server
+  annotations:
+    stackguard.io/horizontal-scaling: "disabled"
+spec:
+  replicas: {{ .Values.server.replicas }}
+  selector:
+    matchLabels:
+      app: stackguard-server
+  template:
+    metadata:
+      labels:
+        app: stackguard-server
+        {{- include "stackguard.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      containers:
+        - name: server
+          image: {{ include "stackguard.image" (dict "image" .Values.images.server) }}
+          imagePullPolicy: {{ .Values.images.server.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.server.service.port }}
+              name: http
+          env:
+            - name: STACKGUARD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_SECRET
+            - name: STACKGUARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_DATABASE_URL
+            - name: STACKGUARD_AI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_AI_URL
+            - name: STACKGUARD_DASHBOARD_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_DASHBOARD_URL
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.server.service.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.server.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: server-data
+              mountPath: /scans
+      volumes:
+        - name: server-data
+          persistentVolumeClaim:
+            claimName: server-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-server
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-server
+spec:
+  type: {{ .Values.server.service.type }}
+  selector:
+    app: stackguard-server
+  ports:
+    - name: http
+      port: {{ .Values.server.service.port }}
+      targetPort: {{ .Values.server.service.port }}
+{{- end }}

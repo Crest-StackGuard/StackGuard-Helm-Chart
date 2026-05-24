@@ -1,13 +1,34 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-postgres
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-postgres
+spec:
+  type: {{ .Values.postgres.service.type }}
+  selector:
+    app: stackguard-postgres
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.service.port }}
+      targetPort: {{ .Values.postgres.service.port }}
+---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: stackguard-postgres
-  namespace: ${STACKGUARD_NAMESPACE}
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-postgres
   annotations:
     stackguard.io/horizontal-scaling: "disabled"
 spec:
   serviceName: stackguard-postgres
-  replicas: 1
+  replicas: {{ .Values.postgres.replicas }}
   selector:
     matchLabels:
       app: stackguard-postgres
@@ -15,14 +36,19 @@ spec:
     metadata:
       labels:
         app: stackguard-postgres
+        {{- include "stackguard.selectorLabels" . | nindent 8 }}
     spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       restartPolicy: Always
       containers:
         - name: postgres
-          image: ${POSTGRES_IMAGE}
-          imagePullPolicy: IfNotPresent
+          image: {{ include "stackguard.image" (dict "image" .Values.images.postgres) }}
+          imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
           ports:
-            - containerPort: 5432
+            - containerPort: {{ .Values.postgres.service.port }}
               name: postgres
           env:
             - name: PGDATA
@@ -43,12 +69,7 @@ spec:
                   name: stackguard-secrets
                   key: POSTGRES_PASSWORD
           resources:
-            requests:
-              cpu: "${POSTGRES_REQ_CPU}"
-              memory: "${POSTGRES_REQ_MEM}"
-            limits:
-              cpu: "${POSTGRES_LIMIT_CPU}"
-              memory: "${POSTGRES_LIMIT_MEM}"
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
           livenessProbe:
             exec:
               command:
@@ -74,8 +95,10 @@ spec:
     - metadata:
         name: postgres-data
       spec:
-        accessModes: ["ReadWriteOnce"]
-        storageClassName: ${STACKGUARD_STORAGE_CLASS}
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ required "global.storageClass is required" .Values.global.storageClass | quote }}
         resources:
           requests:
-            storage: ${POSTGRES_STORAGE_SIZE}
+            storage: {{ .Values.postgres.persistence.size }}
+{{- end }}

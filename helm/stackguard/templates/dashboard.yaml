@@ -1,0 +1,100 @@
+{{- if .Values.dashboard.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: dashboard-data-pvc
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-dashboard
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ required "global.storageClass is required" .Values.global.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.dashboard.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackguard-dashboard
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-dashboard
+  annotations:
+    stackguard.io/horizontal-scaling: "disabled"
+spec:
+  replicas: {{ .Values.dashboard.replicas }}
+  selector:
+    matchLabels:
+      app: stackguard-dashboard
+  template:
+    metadata:
+      labels:
+        app: stackguard-dashboard
+        {{- include "stackguard.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      containers:
+        - name: dashboard
+          image: {{ include "stackguard.image" (dict "image" .Values.images.dashboard) }}
+          imagePullPolicy: {{ .Values.images.dashboard.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.dashboard.service.port }}
+              name: http
+          env:
+            - name: STACKGUARD_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_API_URL
+            - name: STACKGUARD_AI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_AI_URL
+          resources:
+            {{- toYaml .Values.dashboard.resources | nindent 12 }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.dashboard.service.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.dashboard.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: dashboard-data
+              mountPath: /data
+      volumes:
+        - name: dashboard-data
+          persistentVolumeClaim:
+            claimName: dashboard-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-dashboard
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-dashboard
+spec:
+  type: {{ .Values.dashboard.service.type }}
+  selector:
+    app: stackguard-dashboard
+  ports:
+    - name: http
+      port: {{ .Values.dashboard.service.port }}
+      targetPort: {{ .Values.dashboard.service.port }}
+{{- end }}

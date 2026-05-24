@@ -4,7 +4,7 @@ aks_cluster_name    = "aks-stackguard-prod"
 dns_prefix          = "stackguard-prod"
 kubernetes_version  = null
 node_count          = 1
-node_vm_size        = "Standard_D16s_v5"
+node_vm_size        = "Standard_D16s_v3"
 
 tags = {
   environment = "prod"

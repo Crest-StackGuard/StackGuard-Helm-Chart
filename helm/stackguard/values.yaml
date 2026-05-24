@@ -1,0 +1,122 @@
+# Default values for the Stackguard Helm chart.
+# Override secrets and storageClass at install time — do not commit real secrets.
+
+namespace: stackguard
+createNamespace: true
+
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  # Required on most clusters. Examples: managed-csi (AKS), gp3 (EKS), standard-rwo (GKE)
+  storageClass: ""
+  imagePullSecrets: []
+
+urls:
+  # Update after LoadBalancer IPs are assigned, then upgrade the release.
+  dashboard: http://localhost:4000
+  api: http://localhost:8080
+  ai: http://localhost:8000
+
+secrets:
+  # Must be EXACTLY 32 characters. Generate: openssl rand -hex 16
+  stackguardSecret: "0123456789abcdef0123456789abcdef"
+  postgres:
+    database: stackguard
+    user: stackguard
+    password: replace-with-strong-password
+  # Leave empty to auto-build from postgres settings above.
+  databaseUrl: ""
+
+images:
+  dashboard:
+    registry: public.ecr.aws
+    repository: stackguard-io/dashboard
+    tag: latest
+    pullPolicy: Always
+  server:
+    registry: public.ecr.aws
+    repository: stackguard-io/server
+    tag: latest
+    pullPolicy: Always
+  ai:
+    registry: public.ecr.aws
+    repository: stackguard-io/ai
+    tag: latest
+    pullPolicy: Always
+  postgres:
+    registry: ""
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+
+dashboard:
+  enabled: true
+  replicas: 1
+  service:
+    type: LoadBalancer
+    port: 4000
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  persistence:
+    size: 10Gi
+
+server:
+  enabled: true
+  replicas: 1
+  service:
+    type: LoadBalancer
+    port: 8080
+  resources:
+    requests:
+      cpu: "4"
+      memory: 8Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+  persistence:
+    size: 10Gi
+
+ai:
+  enabled: true
+  replicas: 1
+  service:
+    type: LoadBalancer
+    port: 8000
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  persistence:
+    size: 10Gi
+
+postgres:
+  enabled: true
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 5432
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  persistence:
+    size: 10Gi
+
+networkPolicy:
+  enabled: true
+
+vpa:
+  enabled: false
+  updateMode: Off

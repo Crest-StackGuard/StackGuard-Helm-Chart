@@ -1,0 +1,9 @@
+# Artifact Hub repository metadata for Stackguard Helm chart (OCI)
+# https://artifacthub.io/docs/topics/repositories/helm-charts/#oci-support
+#
+# After claiming ownership in Artifact Hub, add repositoryID from Control Panel here
+# and re-push: oras push public.ecr.aws/stackguard-io/stackguard:artifacthub.io ...
+
+owners:
+  - name: Stackguard
+    email: kartik@stackguard.io

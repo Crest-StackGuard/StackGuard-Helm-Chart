@@ -1,164 +1,309 @@
-# Stackguard Multi-Cloud Template (AKS / EKS / GKE)
+# Stackguard on Kubernetes (AKS / EKS / GKE)
 
-Client-ready template for deploying Stackguard on managed Kubernetes in **India regions**:
+Deploy Stackguard on managed Kubernetes. Same app manifests for all clouds — only the Terraform layer changes.
 
-- **Shared Kubernetes layer** (same manifests on all clouds)
-- **Cloud-specific infrastructure layer** (Terraform per provider)
-- **One pod per service** (dashboard, ai, server, postgres)
-- **Horizontal scaling disabled**, vertical scaling only
-- **10 GiB persistent storage per workload**
-- **Auto-restart** via liveness/readiness probes + `restartPolicy: Always`
+**Prefer Helm?** See [`helm/README.md`](helm/README.md) for `helm install` from public ECR (recommended for new deployments).
 
-## Default India Regions
+**India regions (default):** AKS `centralindia` · EKS `ap-south-1` · GKE `asia-south1`
 
-| Cloud | Region | Location |
-|-------|--------|----------|
-| AKS   | `centralindia` | Central India (Pune) |
-| EKS   | `ap-south-1` | Mumbai |
-| GKE   | `asia-south1` | Mumbai |
+---
 
-## Default Workload Sizing
+## What you get
 
-| Service | CPU | Memory | Storage |
-|---------|-----|--------|---------|
-| Dashboard (app) | 2 vCPU | 4 GiB | 10 GiB |
-| AI | 2 vCPU | 4 GiB | 10 GiB |
-| Server | 4 vCPU | 8 GiB | 10 GiB |
-| Postgres | 2 vCPU | 4 GiB | 10 GiB |
+| Service | Port | Public? |
+|---------|------|---------|
+| Dashboard | 4000 | Yes (LoadBalancer) |
+| Server (API) | 8080 | Yes (LoadBalancer) |
+| AI | 8000 | Yes (LoadBalancer) |
+| Postgres | 5432 | No (internal only) |
 
-Node size defaults to **16 vCPU / 64 GiB** to fit all workloads on a single node (horizontal scaling disabled).
+- 1 pod per service (no horizontal scaling)
+- 10 GiB persistent disk per service
+- Vertical scaling only (change CPU/RAM in config files)
 
-## Repository Layout
+---
+
+## Folder structure
 
 ```text
 k8/
-├── README.md
-├── kubernetes/                         # Shared Kubernetes layer
-│   ├── scripts/
-│   │   ├── apply.sh
-│   │   └── apply-vpa.sh
-│   ├── values/
-│   │   ├── base.env.example
-│   │   └── overlays/
-│   │       ├── aks.env.example
-│   │       ├── eks.env.example
-│   │       └── gke.env.example
-│   └── manifests/
-│       ├── namespace/
-│       ├── config/
-│       ├── network/
-│       ├── dashboard/
-│       ├── ai/
-│       ├── server/
-│       ├── postgres/
-│       └── autoscaling/
-└── infrastructure/
-    ├── aks/terraform/
-    ├── eks/terraform/
-    └── gke/terraform/
+├── helm/                    # Helm install (recommended) → helm/README.md
+├── infrastructure/          # Pick ONE: aks / eks / gke → terraform/
+└── kubernetes/
+    ├── scripts/apply.sh     # Raw manifest deploy (alternative to Helm)
+    ├── values/
+    │   ├── base.env.example # Copy this → stackguard.env
+    │   └── overlays/        # Copy aks/eks/gke example → cloud.env
+    └── manifests/           # Do not edit unless you know why
 ```
 
-## Quick Start
+**Never commit:** `stackguard.env`, `cloud.env`, `terraform.tfvars` (gitignored)
 
-### Step 1: Provision cluster (choose one cloud)
+---
 
-#### Azure AKS (Central India)
+## Step 1 — Install tools
 
-```bash
-cd infrastructure/aks/terraform
-cp terraform.tfvars.example terraform.tfvars
-terraform init && terraform plan && terraform apply
+You need: **Terraform**, **kubectl**, **envsubst** (`brew install gettext`), and your cloud CLI (`az` / `aws` / `gcloud`).
 
-az aks get-credentials \
-  --resource-group <resource_group_name> \
-  --name <aks_cluster_name> \
-  --overwrite-existing
-```
+Log in to your cloud account before continuing.
 
-#### AWS EKS (Mumbai)
+---
+
+## Step 2 — Create config files
 
 ```bash
-cd infrastructure/eks/terraform
-cp terraform.tfvars.example terraform.tfvars
-terraform init && terraform plan && terraform apply
+cd k8/kubernetes
 
-aws eks update-kubeconfig --region ap-south-1 --name <cluster_name>
-```
-
-#### Google GKE (Mumbai)
-
-```bash
-cd infrastructure/gke/terraform
-cp terraform.tfvars.example terraform.tfvars
-terraform init && terraform plan && terraform apply
-
-gcloud container clusters get-credentials <cluster_name> --region asia-south1 --project <project_id>
-```
-
-### Step 2: Configure shared Kubernetes values
-
-```bash
-cd ../../../kubernetes
 cp values/base.env.example values/stackguard.env
-cp values/overlays/aks.env.example values/cloud.env   # or eks.env / gke.env
-# Edit values/stackguard.env (secrets, URLs)
+cp values/overlays/aks.env.example values/cloud.env    # use eks or gke if not AKS
+
 chmod +x scripts/*.sh
 ```
 
-### Step 3: Deploy Stackguard
+Edit `values/stackguard.env`:
 
 ```bash
+# 1) Generate a 32-character secret (required — exactly 32 chars)
+openssl rand -hex 16
+# Put output in STACKGUARD_SECRET=
+
+# 2) Generate a Postgres password
+openssl rand -hex 16
+# Put output in POSTGRES_PASSWORD=
+
+# 3) Database URL — password MUST match POSTGRES_PASSWORD, MUST end with ?sslmode=disable
+STACKGUARD_DATABASE_URL=postgresql://stackguard:<POSTGRES_PASSWORD>@stackguard-postgres:5432/stackguard?sslmode=disable
+```
+
+Leave the three `localhost` URLs for now — you fix them in Step 6.
+
+---
+
+## Step 3 — Create the cluster (pick your cloud)
+
+### AKS
+
+```bash
+cd ../../infrastructure/aks/terraform
+cp terraform.tfvars.example terraform.tfvars
+terraform init
+terraform apply
+
+az aks get-credentials \
+  --resource-group rg-stackguard-prod \
+  --name aks-stackguard-prod \
+  --overwrite-existing
+```
+
+### EKS
+
+```bash
+cd ../../infrastructure/eks/terraform
+cp terraform.tfvars.example terraform.tfvars
+terraform init && terraform apply
+
+aws eks update-kubeconfig --region ap-south-1 --name eks-stackguard-prod
+```
+
+### GKE
+
+```bash
+cd ../../infrastructure/gke/terraform
+cp terraform.tfvars.example terraform.tfvars
+terraform init && terraform apply
+
+gcloud container clusters get-credentials gke-stackguard-prod \
+  --region asia-south1 --project <your-project-id>
+```
+
+Confirm the cluster works:
+
+```bash
+kubectl get nodes
+```
+
+---
+
+## Step 4 — Deploy Stackguard
+
+```bash
+cd ../../../kubernetes
+
 ./scripts/apply.sh values/stackguard.env values/cloud.env
 ```
 
-Optional VPA (vertical scaling only):
+Wait until all 4 pods are Running:
 
 ```bash
-./scripts/apply-vpa.sh values/stackguard.env values/cloud.env
+kubectl get pods -n stackguard -w
 ```
 
-## Inter-Service Communication
+You want:
 
-All services communicate inside the cluster via Kubernetes DNS:
+```text
+stackguard-dashboard-...   1/1   Running
+stackguard-ai-...          1/1   Running
+stackguard-server-...      1/1   Running
+stackguard-postgres-0      1/1   Running
+```
 
-| Service | DNS Name | Port |
-|---------|----------|------|
-| Dashboard | `stackguard-dashboard` | 4000 |
-| AI | `stackguard-ai` | 8000 |
-| Server | `stackguard-server` | 8080 |
-| Postgres | `stackguard-postgres` | 5432 |
+Press `Ctrl+C` to stop watching.
 
-## Networking & Resilience
+---
 
-- **Ingress:** permissive NetworkPolicy (all inbound ports allowed; tighten later if needed)
-- **Egress:** permissive NetworkPolicy (cluster + public internet)
-- **EKS:** cluster security group allows all inbound/outbound by default
-- **AKS:** outbound internet via load balancer; inbound via LoadBalancer services
-- **Persistence:** PVC/StatefulSet volumes survive pod restarts
-- **Auto-restart:** liveness/readiness probes restart unhealthy containers automatically
+## Step 5 — Get public IPs and fix URLs
 
-## Scaling Policy
+```bash
+kubectl get svc -n stackguard
+```
 
-- **Horizontal scaling:** disabled
-  - Workloads pinned to `replicas: 1`
-  - No HPA manifests
-  - Node pool autoscaling disabled in all Terraform modules
-  - `node_count` validated to `1`
-- **Vertical scaling:** allowed
-  - Update CPU/memory/storage in `kubernetes/values/stackguard.env`
-  - Optionally enable VPA via `kubernetes/scripts/apply-vpa.sh`
-  - Increase node size in cloud Terraform
+Copy the **EXTERNAL-IP** for dashboard, server, and ai. Edit `values/stackguard.env`:
 
-## Cloud Storage Classes
+```bash
+STACKGUARD_DASHBOARD_URL=http://<dashboard-ip>:4000
+STACKGUARD_API_URL=http://<server-ip>:8080
+STACKGUARD_AI_URL=http://<ai-ip>:8000
+```
 
-| Cloud | Storage Class |
-|-------|---------------|
-| AKS   | `managed-csi` |
-| EKS   | `gp3` |
-| GKE   | `standard-rwo` |
+Apply again and restart apps:
 
-## Notes
+```bash
+./scripts/apply.sh values/stackguard.env values/cloud.env
 
-- Kubernetes manifests are cloud-agnostic and reusable across AKS/EKS/GKE.
-- Re-running `./scripts/apply.sh` resets replica counts to `1`.
-- NetworkPolicy requires a supporting CNI (Azure CNI, Calico on EKS, etc.).
+kubectl rollout restart deployment -n stackguard \
+  stackguard-dashboard stackguard-ai stackguard-server
+```
+
+Open in browser: **http://\<dashboard-ip\>:4000**
+
+---
+
+## Step 6 — Check status
+
+```bash
+# Everything running?
+kubectl get pods -n stackguard
+kubectl get svc -n stackguard
+kubectl get pvc -n stackguard
+```
+
+---
+
+## Step 7 — Check logs
+
+**Dashboard**
+
+```bash
+kubectl logs -n stackguard -l app=stackguard-dashboard --tail=100
+kubectl logs -n stackguard -l app=stackguard-dashboard -f
+```
+
+**AI**
+
+```bash
+kubectl logs -n stackguard -l app=stackguard-ai --tail=100
+kubectl logs -n stackguard -l app=stackguard-ai -f
+```
+
+**Server**
+
+```bash
+kubectl logs -n stackguard -l app=stackguard-server --tail=100
+kubectl logs -n stackguard -l app=stackguard-server -f
+```
+
+**Postgres**
+
+```bash
+kubectl logs -n stackguard stackguard-postgres-0 --tail=100
+kubectl logs -n stackguard stackguard-postgres-0 -f
+```
+
+**After a crash** (see what happened before restart):
+
+```bash
+kubectl logs -n stackguard -l app=stackguard-server --previous
+kubectl logs -n stackguard -l app=stackguard-ai --previous
+kubectl logs -n stackguard stackguard-postgres-0 --previous
+```
+
+**Why is a pod failing?**
+
+```bash
+kubectl describe pod -n stackguard -l app=stackguard-server
+kubectl describe pod -n stackguard -l app=stackguard-ai
+kubectl describe pod -n stackguard -l app=stackguard-dashboard
+kubectl describe pod -n stackguard stackguard-postgres-0
+```
+
+**All pods at once**
+
+```bash
+for p in $(kubectl get pods -n stackguard -o name); do
+  echo "=== $p ==="
+  kubectl logs -n stackguard "$p" --tail=30
+done
+```
+
+---
+
+## Common problems
+
+| Problem | Fix |
+|---------|-----|
+| `STACKGUARD_SECRET must be exactly 32 characters` | Run `openssl rand -hex 16`, put result in `STACKGUARD_SECRET` |
+| `SSL is not enabled on the server` | Add `?sslmode=disable` to end of `STACKGUARD_DATABASE_URL` |
+| Postgres crash — `lost+found` | Already fixed in template. Reset: `kubectl delete statefulset -n stackguard stackguard-postgres` then `kubectl delete pvc -n stackguard postgres-data-stackguard-postgres-0` then re-run `apply.sh` |
+| AKS quota error `standardDSv3Family` | Azure Portal → Subscriptions → Usage + quotas → Central India → increase **Standard DSv3 Family vCPUs** to at least 16 |
+| Pod stuck `Pending` | Single node ran out of CPU during restart. Run `kubectl get pods -n stackguard` and delete the old/terminating pod |
+| LoadBalancer `<pending>` | Wait 2–5 min. Check Azure/AWS/GCP LB quota |
+| Config change not picked up | Re-run `./scripts/apply.sh` then `kubectl rollout restart deployment -n stackguard <name>` |
+
+---
+
+## Change CPU / RAM / storage
+
+Edit `kubernetes/values/stackguard.env`, then:
+
+```bash
+./scripts/apply.sh values/stackguard.env values/cloud.env
+kubectl rollout restart deployment -n stackguard stackguard-dashboard stackguard-ai stackguard-server
+```
+
+To scale the node VM, edit `terraform.tfvars` and run `terraform apply`.
+
+---
+
+## Delete everything
+
+```bash
+# Remove Stackguard
+kubectl delete namespace stackguard
+
+# Remove cluster
+cd infrastructure/<aks|eks|gke>/terraform
+terraform destroy
+```
+
+---
+
+## Default sizing
+
+| Service | CPU | RAM | Disk |
+|---------|-----|-----|------|
+| Dashboard | 2 | 4 GiB | 10 GiB |
+| AI | 2 | 4 GiB | 10 GiB |
+| Server | 4 | 8 GiB | 10 GiB |
+| Postgres | 2 | 4 GiB | 10 GiB |
+
+| Cloud | Node VM |
+|-------|---------|
+| AKS | `Standard_D16s_v3` (16 vCPU) |
+| EKS | `m6i.4xlarge` |
+| GKE | `n2-standard-16` |
+
+| Cloud | Storage class (`cloud.env`) |
+|-------|----------------------------|
+| AKS | `managed-csi` |
+| EKS | `gp3` |
+| GKE | `standard-rwo` |
