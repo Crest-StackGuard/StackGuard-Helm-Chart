@@ -143,13 +143,3 @@ resource "aws_security_group_rule" "cluster_ingress_all" {
   security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
   description       = "Allow all inbound (client can tighten later)"
 }
-
-resource "aws_security_group_rule" "cluster_egress_all" {
-  type              = "egress"
-  from_port         = 0
-  to_port           = 0
-  protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
-  security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
-  description       = "Allow all outbound including public internet"
-}
