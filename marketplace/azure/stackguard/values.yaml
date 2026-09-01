@@ -22,19 +22,19 @@ global:
       dashboard:
         registry: public.ecr.aws
         image: stackguard-io/dashboard
-        tag: latest
+        digest: "sha256:85670abebc3bd7dc35d3ab375dfbf360cfc100f7b52a3003d3eda7859220cbf2"
       server:
         registry: public.ecr.aws
         image: stackguard-io/server
-        tag: latest
+        digest: "sha256:4620999ddf0225bbfdddb2cbc61c3c54031c8e81f708246b683574e245643f94"
       ai:
         registry: public.ecr.aws
         image: stackguard-io/ai
-        tag: latest
+        digest: "sha256:1193c2f16df1cad8190a88edf53aff7d385b50415641123993973c4ae019b437"
       postgres:
         registry: docker.io/library
         image: postgres
-        tag: "16"
+        tag: "16.4"
 
 urls:
   dashboard: http://localhost:4000
@@ -55,22 +55,22 @@ images:
   dashboard:
     registry: public.ecr.aws
     repository: stackguard-io/dashboard
-    tag: latest
+    digest: "sha256:85670abebc3bd7dc35d3ab375dfbf360cfc100f7b52a3003d3eda7859220cbf2"
     pullPolicy: IfNotPresent
   server:
     registry: public.ecr.aws
     repository: stackguard-io/server
-    tag: latest
+    digest: "sha256:4620999ddf0225bbfdddb2cbc61c3c54031c8e81f708246b683574e245643f94"
     pullPolicy: IfNotPresent
   ai:
     registry: public.ecr.aws
     repository: stackguard-io/ai
-    tag: latest
+    digest: "sha256:1193c2f16df1cad8190a88edf53aff7d385b50415641123993973c4ae019b437"
     pullPolicy: IfNotPresent
   postgres:
     registry: docker.io/library
     repository: postgres
-    tag: "16"
+    tag: "16.4"
     pullPolicy: IfNotPresent
 
 dashboard:

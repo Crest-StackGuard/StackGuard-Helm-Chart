@@ -58,11 +58,11 @@ Azure Marketplace rewrites global.azure.images.<key>, so it wins when present.
 {{- $image := index $ctx.Values.images $key -}}
 {{- $registry := $image.registry | default "" -}}
 {{- $repository := required "image repository is required" $image.repository -}}
-{{- $tag := $image.tag | default "latest" -}}
-{{- if $registry -}}
-{{- printf "%s/%s:%s" $registry $repository $tag -}}
+{{- $ref := ternary (printf "%s/%s" $registry $repository) $repository (ne $registry "") -}}
+{{- if $image.digest -}}
+{{- printf "%s@%s" $ref $image.digest -}}
 {{- else -}}
-{{- printf "%s:%s" $repository $tag -}}
+{{- printf "%s:%s" $ref ($image.tag | default "latest") -}}
 {{- end -}}
 {{- end -}}
 {{- end }}

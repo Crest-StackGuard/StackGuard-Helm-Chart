@@ -6,7 +6,7 @@ helmChart: "./stackguard"
 clusterArmTemplate: "./mainTemplate.json"
 uiDefinition: "./createUIDefinition.json"
 # Replace with the ACR in your Partner Center publishing tenant.
-registryServer: "<your-registry>.azurecr.io"
+registryServer: "stackguardmp.azurecr.io"
 extensionRegistrationParameters:
   defaultScope: "cluster"
   namespace: "stackguard"
