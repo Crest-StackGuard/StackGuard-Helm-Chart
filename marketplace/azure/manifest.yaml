@@ -1,0 +1,12 @@
+applicationName: io.stackguard.stackguard
+publisher: "Stackguard"
+description: "Stackguard security platform - dashboard, API server, AI service, and PostgreSQL."
+version: 1.0.0 # Must be in the format #.#.#
+helmChart: "./stackguard"
+clusterArmTemplate: "./mainTemplate.json"
+uiDefinition: "./createUIDefinition.json"
+# Replace with the ACR in your Partner Center publishing tenant.
+registryServer: "<your-registry>.azurecr.io"
+extensionRegistrationParameters:
+  defaultScope: "cluster"
+  namespace: "stackguard"

@@ -1,0 +1,221 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "extensionResourceName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the Stackguard cluster extension."
+            }
+        },
+        "clusterResourceName": {
+            "type": "string",
+            "metadata": {
+                "description": "The name of the Managed Cluster resource."
+            }
+        },
+        "createNewCluster": {
+            "type": "bool",
+            "defaultValue": false,
+            "metadata": {
+                "description": "When set to 'true', creates a new AKS cluster. Otherwise, an existing cluster is used."
+            }
+        },
+        "location": {
+            "type": "string",
+            "metadata": {
+                "description": "The location of the AKS resource."
+            }
+        },
+        "app-storageClass": {
+            "type": "string",
+            "defaultValue": "managed-csi",
+            "metadata": {
+                "description": "Storage class used for all Stackguard persistent volumes."
+            }
+        },
+        "app-dashboardUrl": {
+            "type": "string",
+            "defaultValue": "http://localhost:4000"
+        },
+        "app-apiUrl": {
+            "type": "string",
+            "defaultValue": "http://localhost:8080"
+        },
+        "app-aiUrl": {
+            "type": "string",
+            "defaultValue": "http://localhost:8000"
+        },
+        "app-serviceType": {
+            "type": "string",
+            "defaultValue": "LoadBalancer",
+            "allowedValues": [
+                "LoadBalancer",
+                "ClusterIP"
+            ]
+        },
+        "app-stackguardSecret": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Stackguard application secret. Must be exactly 32 characters."
+            }
+        },
+        "app-postgresPassword": {
+            "type": "securestring",
+            "metadata": {
+                "description": "Password for the bundled PostgreSQL database."
+            }
+        },
+        "vmSize": {
+            "type": "string",
+            "defaultValue": "Standard_D8s_v5",
+            "metadata": {
+                "description": "VM size for the AKS node pool."
+            }
+        },
+        "vmEnableAutoScale": {
+            "type": "bool",
+            "defaultValue": true
+        },
+        "vmCount": {
+            "type": "int",
+            "defaultValue": 3
+        },
+        "dnsPrefix": {
+            "type": "string",
+            "defaultValue": "[concat(parameters('clusterResourceName'),'-dns')]"
+        },
+        "osDiskSizeGB": {
+            "type": "int",
+            "defaultValue": 0,
+            "minValue": 0,
+            "maxValue": 1023
+        },
+        "kubernetesVersion": {
+            "type": "string",
+            "defaultValue": "1.32.6"
+        },
+        "networkPlugin": {
+            "type": "string",
+            "defaultValue": "azure",
+            "allowedValues": [
+                "azure",
+                "kubenet"
+            ]
+        },
+        "enableRBAC": {
+            "type": "bool",
+            "defaultValue": true
+        },
+        "enablePrivateCluster": {
+            "type": "bool",
+            "defaultValue": false
+        },
+        "osSKU": {
+            "type": "string",
+            "defaultValue": "AzureLinux",
+            "allowedValues": [
+                "AzureLinux",
+                "Ubuntu"
+            ]
+        },
+        "enableFIPS": {
+            "type": "bool",
+            "defaultValue": false
+        }
+    },
+    "variables": {
+        "plan-name": "DONOTMODIFY",
+        "plan-publisher": "DONOTMODIFY",
+        "plan-offerID": "DONOTMODIFY",
+        "releaseTrain": "DONOTMODIFY",
+        "clusterExtensionTypeName": "DONOTMODIFY"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ContainerService/managedClusters",
+            "condition": "[parameters('createNewCluster')]",
+            "apiVersion": "2025-05-01",
+            "name": "[parameters('clusterResourceName')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [],
+            "tags": {},
+            "sku": {
+                "name": "Base",
+                "tier": "Free"
+            },
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "kubernetesVersion": "[parameters('kubernetesVersion')]",
+                "enableRBAC": "[parameters('enableRBAC')]",
+                "dnsPrefix": "[parameters('dnsPrefix')]",
+                "autoUpgradeProfile": {
+                    "upgradeChannel": "patch",
+                    "nodeOSUpgradeChannel": "NodeImage"
+                },
+                "agentPoolProfiles": [
+                    {
+                        "name": "agentpool",
+                        "osDiskSizeGB": "[parameters('osDiskSizeGB')]",
+                        "count": "[parameters('vmCount')]",
+                        "enableAutoScaling": "[parameters('vmEnableAutoScale')]",
+                        "enableFIPS": "[parameters('enableFIPS')]",
+                        "minCount": "[if(parameters('vmEnableAutoScale'), 1, json('null'))]",
+                        "maxCount": "[if(parameters('vmEnableAutoScale'), 10, json('null'))]",
+                        "vmSize": "[parameters('vmSize')]",
+                        "osType": "Linux",
+                        "osSKU": "[parameters('osSKU')]",
+                        "type": "VirtualMachineScaleSets",
+                        "mode": "System",
+                        "maxPods": 110,
+                        "availabilityZones": [],
+                        "enableNodePublicIP": false,
+                        "tags": {}
+                    }
+                ],
+                "networkProfile": {
+                    "loadBalancerSku": "standard",
+                    "networkPlugin": "[parameters('networkPlugin')]"
+                },
+                "apiServerAccessProfile": {
+                    "enablePrivateCluster": "[parameters('enablePrivateCluster')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.KubernetesConfiguration/extensions",
+            "apiVersion": "2024-11-01",
+            "name": "[parameters('extensionResourceName')]",
+            "properties": {
+                "extensionType": "[variables('clusterExtensionTypeName')]",
+                "autoUpgradeMinorVersion": true,
+                "releaseTrain": "[variables('releaseTrain')]",
+                "configurationSettings": {
+                    "global.storageClass": "[parameters('app-storageClass')]",
+                    "urls.dashboard": "[parameters('app-dashboardUrl')]",
+                    "urls.api": "[parameters('app-apiUrl')]",
+                    "urls.ai": "[parameters('app-aiUrl')]",
+                    "dashboard.service.type": "[parameters('app-serviceType')]",
+                    "server.service.type": "[parameters('app-serviceType')]",
+                    "ai.service.type": "[parameters('app-serviceType')]"
+                },
+                "configurationProtectedSettings": {
+                    "secrets.stackguardSecret": "[parameters('app-stackguardSecret')]",
+                    "secrets.postgres.password": "[parameters('app-postgresPassword')]"
+                }
+            },
+            "plan": {
+                "name": "[variables('plan-name')]",
+                "publisher": "[variables('plan-publisher')]",
+                "product": "[variables('plan-offerID')]"
+            },
+            "scope": "[concat('Microsoft.ContainerService/managedClusters/', parameters('clusterResourceName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters/', parameters('clusterResourceName'))]"
+            ]
+        }
+    ],
+    "outputs": {}
+}

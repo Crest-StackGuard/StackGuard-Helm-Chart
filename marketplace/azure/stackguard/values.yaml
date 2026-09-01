@@ -1,0 +1,145 @@
+# Values for the Azure Marketplace (CNAB) distribution of Stackguard.
+#
+# Differences from the public chart:
+#   - The AKS cluster extension owns the namespace, so it is never created here.
+#   - Images are declared under global.azure.images so the marketplace packaging
+#     tool can retag them to the Microsoft-owned ACR.
+#   - Secrets are supplied by the cluster extension via configurationProtectedSettings.
+
+# Empty -> resources land in the extension's release namespace.
+namespace: ""
+createNamespace: false
+
+nameOverride: ""
+fullnameOverride: ""
+
+global:
+  # AKS built-in managed-csi storage class.
+  storageClass: managed-csi
+  imagePullSecrets: []
+  azure:
+    images:
+      dashboard:
+        registry: public.ecr.aws
+        image: stackguard-io/dashboard
+        tag: latest
+      server:
+        registry: public.ecr.aws
+        image: stackguard-io/server
+        tag: latest
+      ai:
+        registry: public.ecr.aws
+        image: stackguard-io/ai
+        tag: latest
+      postgres:
+        registry: docker.io/library
+        image: postgres
+        tag: "16"
+
+urls:
+  dashboard: http://localhost:4000
+  api: http://localhost:8080
+  ai: http://localhost:8000
+
+secrets:
+  # Overridden per-install through configurationProtectedSettings. Must be exactly 32 characters.
+  stackguardSecret: "0123456789abcdef0123456789abcdef"
+  postgres:
+    database: stackguard
+    user: stackguard
+    password: replace-with-strong-password
+  databaseUrl: ""
+
+# Fallback block, unused while global.azure.images is populated.
+images:
+  dashboard:
+    registry: public.ecr.aws
+    repository: stackguard-io/dashboard
+    tag: latest
+    pullPolicy: IfNotPresent
+  server:
+    registry: public.ecr.aws
+    repository: stackguard-io/server
+    tag: latest
+    pullPolicy: IfNotPresent
+  ai:
+    registry: public.ecr.aws
+    repository: stackguard-io/ai
+    tag: latest
+    pullPolicy: IfNotPresent
+  postgres:
+    registry: docker.io/library
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+
+dashboard:
+  enabled: true
+  replicas: 1
+  service:
+    type: LoadBalancer
+    port: 4000
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  persistence:
+    size: 10Gi
+
+server:
+  enabled: true
+  replicas: 1
+  service:
+    type: LoadBalancer
+    port: 8080
+  resources:
+    requests:
+      cpu: "4"
+      memory: 8Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+  persistence:
+    size: 10Gi
+
+ai:
+  enabled: true
+  replicas: 1
+  service:
+    type: LoadBalancer
+    port: 8000
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  persistence:
+    size: 10Gi
+
+postgres:
+  enabled: true
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 5432
+  resources:
+    requests:
+      cpu: "2"
+      memory: 4Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  persistence:
+    size: 10Gi
+
+networkPolicy:
+  enabled: true
+
+vpa:
+  enabled: false
+  updateMode: "Off"

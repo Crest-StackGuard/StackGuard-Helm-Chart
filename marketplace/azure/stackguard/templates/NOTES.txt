@@ -1,0 +1,27 @@
+1. Stackguard has been deployed to namespace {{ include "stackguard.namespace" . }}.
+
+2. Wait for all pods to become Running:
+
+   kubectl get pods -n {{ include "stackguard.namespace" . }} -w
+
+3. Get public LoadBalancer IPs:
+
+   kubectl get svc -n {{ include "stackguard.namespace" . }}
+
+4. Update URLs, then upgrade the release:
+
+   helm upgrade {{ .Release.Name }} oci://public.ecr.aws/stackguard-io/stackguard \
+     --version {{ .Chart.Version }} \
+     -f values.local.yaml \
+     --set urls.dashboard=http://<dashboard-ip>:4000 \
+     --set urls.api=http://<server-ip>:8080 \
+     --set urls.ai=http://<ai-ip>:8000
+
+5. Restart app deployments to pick up URL changes:
+
+   kubectl rollout restart deployment -n {{ include "stackguard.namespace" . }} \
+     stackguard-dashboard stackguard-ai stackguard-server
+
+6. Open the dashboard:
+
+   http://<dashboard-ip>:4000
