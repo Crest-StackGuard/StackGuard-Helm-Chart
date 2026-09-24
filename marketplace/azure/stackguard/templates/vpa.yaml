@@ -16,23 +16,6 @@ spec:
     updateMode: {{ .Values.vpa.updateMode | quote }}
 {{- end }}
 ---
-{{- if .Values.ai.enabled }}
-apiVersion: autoscaling.k8s.io/v1
-kind: VerticalPodAutoscaler
-metadata:
-  name: stackguard-ai-vpa
-  namespace: {{ include "stackguard.namespace" . }}
-  labels:
-    {{- include "stackguard.labels" . | nindent 4 }}
-spec:
-  targetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: stackguard-ai
-  updatePolicy:
-    updateMode: {{ .Values.vpa.updateMode | quote }}
-{{- end }}
----
 {{- if .Values.server.enabled }}
 apiVersion: autoscaling.k8s.io/v1
 kind: VerticalPodAutoscaler

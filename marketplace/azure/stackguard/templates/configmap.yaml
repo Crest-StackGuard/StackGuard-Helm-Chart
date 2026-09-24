@@ -8,4 +8,3 @@ metadata:
 data:
   STACKGUARD_DASHBOARD_URL: {{ .Values.urls.dashboard | quote }}
   STACKGUARD_API_URL: {{ .Values.urls.api | quote }}
-  STACKGUARD_AI_URL: {{ .Values.urls.ai | quote }}

@@ -16,7 +16,6 @@ urls:
   # Update after LoadBalancer IPs are assigned, then upgrade the release.
   dashboard: http://localhost:4000
   api: http://localhost:8080
-  ai: http://localhost:8000
 
 secrets:
   # Must be EXACTLY 32 characters. Generate: openssl rand -hex 16
@@ -37,12 +36,7 @@ images:
   server:
     registry: public.ecr.aws
     repository: stackguard-io/server
-    tag: "v1.0.0"
-    pullPolicy: IfNotPresent
-  ai:
-    registry: public.ecr.aws
-    repository: stackguard-io/ai
-    tag: "v1.0.0"
+    tag: "v1.0.1"
     pullPolicy: IfNotPresent
   postgres:
     registry: ""
@@ -79,22 +73,6 @@ server:
     limits:
       cpu: "4"
       memory: 8Gi
-  persistence:
-    size: 10Gi
-
-ai:
-  enabled: true
-  replicas: 1
-  service:
-    type: LoadBalancer
-    port: 8000
-  resources:
-    requests:
-      cpu: "2"
-      memory: 4Gi
-    limits:
-      cpu: "2"
-      memory: 4Gi
   persistence:
     size: 10Gi
 

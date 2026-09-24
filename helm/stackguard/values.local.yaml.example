@@ -12,13 +12,10 @@ secrets:
 urls:
   dashboard: http://localhost:4000
   api: http://localhost:8080
-  ai: http://localhost:8000
 
 # Pin image tags for production
 # images:
 #   dashboard:
 #     tag: "1.0.0"
 #   server:
-#     tag: "1.0.0"
-#   ai:
 #     tag: "1.0.0"

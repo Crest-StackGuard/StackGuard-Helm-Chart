@@ -26,11 +26,7 @@ global:
       server:
         registry: public.ecr.aws
         image: stackguard-io/server
-        tag: "v1.0.0"
-      ai:
-        registry: public.ecr.aws
-        image: stackguard-io/ai
-        tag: "v1.0.0"
+        tag: "v1.0.1"
       postgres:
         registry: docker.io/library
         image: postgres
@@ -39,7 +35,6 @@ global:
 urls:
   dashboard: http://localhost:4000
   api: http://localhost:8080
-  ai: http://localhost:8000
 
 secrets:
   # Overridden per-install through configurationProtectedSettings. Must be exactly 32 characters.
@@ -60,12 +55,7 @@ images:
   server:
     registry: public.ecr.aws
     repository: stackguard-io/server
-    tag: "v1.0.0"
-    pullPolicy: IfNotPresent
-  ai:
-    registry: public.ecr.aws
-    repository: stackguard-io/ai
-    tag: "v1.0.0"
+    tag: "v1.0.1"
     pullPolicy: IfNotPresent
   postgres:
     registry: docker.io/library
@@ -102,22 +92,6 @@ server:
     limits:
       cpu: "4"
       memory: 8Gi
-  persistence:
-    size: 10Gi
-
-ai:
-  enabled: true
-  replicas: 1
-  service:
-    type: LoadBalancer
-    port: 8000
-  resources:
-    requests:
-      cpu: "2"
-      memory: 4Gi
-    limits:
-      cpu: "2"
-      memory: 4Gi
   persistence:
     size: 10Gi
 

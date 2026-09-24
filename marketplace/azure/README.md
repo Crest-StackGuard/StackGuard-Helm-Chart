@@ -38,8 +38,8 @@ Marketplace-specific behaviour in the shared templates:
 | Portal input | Helm value |
 | --- | --- |
 | Storage class | `global.storageClass` |
-| Service exposure | `dashboard/server/ai.service.type` |
-| Dashboard / API / AI URL | `urls.*` |
+| Service exposure | `dashboard/server.service.type` |
+| Dashboard / API URL | `urls.*` |
 | Stackguard secret (protected) | `secrets.stackguardSecret` |
 | PostgreSQL password (protected) | `secrets.postgres.password` |
 

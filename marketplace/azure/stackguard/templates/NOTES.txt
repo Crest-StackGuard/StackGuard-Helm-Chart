@@ -14,13 +14,12 @@
      --version {{ .Chart.Version }} \
      -f values.local.yaml \
      --set urls.dashboard=http://<dashboard-ip>:4000 \
-     --set urls.api=http://<server-ip>:8080 \
-     --set urls.ai=http://<ai-ip>:8000
+     --set urls.api=http://<server-ip>:8080
 
 5. Restart app deployments to pick up URL changes:
 
    kubectl rollout restart deployment -n {{ include "stackguard.namespace" . }} \
-     stackguard-dashboard stackguard-ai stackguard-server
+     stackguard-dashboard stackguard-server
 
 6. Open the dashboard:
 

@@ -192,7 +192,7 @@
                         "type": "Microsoft.Common.DropDown",
                         "label": "Storage class",
                         "defaultValue": "managed-csi",
-                        "toolTip": "Storage class used for the dashboard, server, AI, and PostgreSQL volumes.",
+                        "toolTip": "Storage class used for the dashboard, server, and PostgreSQL volumes.",
                         "constraints": {
                             "allowedValues": [
                                 {
@@ -216,7 +216,7 @@
                         "type": "Microsoft.Common.DropDown",
                         "label": "Service exposure",
                         "defaultValue": "LoadBalancer",
-                        "toolTip": "LoadBalancer publishes public IPs for the dashboard, API, and AI services. ClusterIP keeps them internal.",
+                        "toolTip": "LoadBalancer publishes public IPs for the dashboard and API services. ClusterIP keeps them internal.",
                         "constraints": {
                             "allowedValues": [
                                 {
@@ -299,18 +299,6 @@
                             "regex": "^https?://.{1,200}$",
                             "validationMessage": "Enter a valid http or https URL."
                         }
-                    },
-                    {
-                        "name": "aiUrl",
-                        "type": "Microsoft.Common.TextBox",
-                        "label": "AI service URL",
-                        "defaultValue": "http://localhost:8000",
-                        "toolTip": "Public URL of the Stackguard AI service.",
-                        "constraints": {
-                            "required": true,
-                            "regex": "^https?://.{1,200}$",
-                            "validationMessage": "Enter a valid http or https URL."
-                        }
                     }
                 ]
             }
@@ -330,8 +318,7 @@
             "app-stackguardSecret": "[steps('applicationDetails').stackguardSecret]",
             "app-postgresPassword": "[steps('applicationDetails').postgresPassword]",
             "app-dashboardUrl": "[steps('applicationDetails').dashboardUrl]",
-            "app-apiUrl": "[steps('applicationDetails').apiUrl]",
-            "app-aiUrl": "[steps('applicationDetails').aiUrl]"
+            "app-apiUrl": "[steps('applicationDetails').apiUrl]"
         }
     }
 }
