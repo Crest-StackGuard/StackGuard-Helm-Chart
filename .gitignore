@@ -3,3 +3,6 @@
 marketplace/azure/.cnab/
 marketplace/azure/porter.yaml
 marketplace/azure/*.tgz
+
+# macOS Finder metadata
+.DS_Store
