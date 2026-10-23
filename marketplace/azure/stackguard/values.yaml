@@ -17,6 +17,8 @@ global:
   # AKS built-in managed-csi storage class.
   storageClass: managed-csi
   imagePullSecrets: []
+  # Set by the ARM template to the cluster's region; combined with azureDnsLabel.
+  azureRegion: ""
   azure:
     images:
       dashboard:
@@ -33,8 +35,9 @@ global:
         tag: "16.4"
 
 urls:
-  dashboard: http://localhost:4000
-  api: http://localhost:8080
+  # Empty -> http://<azureDnsLabel>.<azureRegion>.cloudapp.azure.com:<port>.
+  dashboard: ""
+  api: ""
 
 secrets:
   # Overridden per-install through configurationProtectedSettings. Must be exactly 32 characters.
@@ -69,10 +72,12 @@ dashboard:
   service:
     type: LoadBalancer
     port: 4000
+    # AKS only: publishes <label>.<region>.cloudapp.azure.com for this LoadBalancer.
+    azureDnsLabel: ""
   resources:
     requests:
-      cpu: "2"
-      memory: 4Gi
+      cpu: 500m
+      memory: 1Gi
     limits:
       cpu: "2"
       memory: 4Gi
@@ -85,10 +90,12 @@ server:
   service:
     type: LoadBalancer
     port: 8080
+    # AKS only: publishes <label>.<region>.cloudapp.azure.com for this LoadBalancer.
+    azureDnsLabel: ""
   resources:
     requests:
-      cpu: "4"
-      memory: 8Gi
+      cpu: "1"
+      memory: 2Gi
     limits:
       cpu: "4"
       memory: 8Gi
@@ -103,8 +110,8 @@ postgres:
     port: 5432
   resources:
     requests:
-      cpu: "2"
-      memory: 4Gi
+      cpu: 500m
+      memory: 1Gi
     limits:
       cpu: "2"
       memory: 4Gi

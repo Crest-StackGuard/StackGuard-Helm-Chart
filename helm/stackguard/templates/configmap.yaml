@@ -6,5 +6,5 @@ metadata:
   labels:
     {{- include "stackguard.labels" . | nindent 4 }}
 data:
-  STACKGUARD_DASHBOARD_URL: {{ .Values.urls.dashboard | quote }}
-  STACKGUARD_API_URL: {{ .Values.urls.api | quote }}
+  STACKGUARD_DASHBOARD_URL: {{ include "stackguard.publicUrl" (dict "ctx" . "url" .Values.urls.dashboard "service" .Values.dashboard.service) | quote }}
+  STACKGUARD_API_URL: {{ include "stackguard.publicUrl" (dict "ctx" . "url" .Values.urls.api "service" .Values.server.service) | quote }}

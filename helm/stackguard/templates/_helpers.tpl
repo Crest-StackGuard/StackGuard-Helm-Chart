@@ -84,3 +84,17 @@ azure-extensions-usage-release-identifier: {{ .Release.Name | quote }}
 {{- printf "postgresql://%s:%s@stackguard-postgres:5432/%s?sslmode=disable" .Values.secrets.postgres.user .Values.secrets.postgres.password .Values.secrets.postgres.database -}}
 {{- end -}}
 {{- end }}
+
+{{/*
+Public URL for a component: explicit url, else its Azure DNS name, else localhost.
+*/}}
+{{- define "stackguard.publicUrl" -}}
+{{- $region := .ctx.Values.global.azureRegion -}}
+{{- if .url -}}
+{{- .url -}}
+{{- else if and .service.azureDnsLabel $region -}}
+{{- printf "http://%s.%s.cloudapp.azure.com:%v" .service.azureDnsLabel $region .service.port -}}
+{{- else -}}
+{{- printf "http://localhost:%v" .service.port -}}
+{{- end -}}
+{{- end }}

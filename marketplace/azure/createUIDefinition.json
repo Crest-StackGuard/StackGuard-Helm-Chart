@@ -107,15 +107,17 @@
                                 "name": "vmSize",
                                 "type": "Microsoft.Compute.SizeSelector",
                                 "label": "VM size",
-                                "toolTip": "Stackguard requests roughly 10 vCPU and 20 GiB of memory in total, so pick a size with adequate capacity.",
+                                "toolTip": "Stackguard requests about 2 vCPU and 4 GiB of memory in total (limits up to 8 vCPU and 16 GiB). A single 4 vCPU node is enough to start; choose a larger size for heavier workloads.",
                                 "recommendedSizes": [
-                                    "Standard_D8s_v5",
-                                    "Standard_D16s_v5"
+                                    "Standard_D4s_v5",
+                                    "Standard_D8s_v5"
                                 ],
                                 "constraints": {
                                     "allowedSizes": [
+                                        "Standard_D4s_v5",
                                         "Standard_D8s_v5",
                                         "Standard_D16s_v5",
+                                        "Standard_D4s_v4",
                                         "Standard_D8s_v4",
                                         "Standard_D16s_v4"
                                     ],
@@ -157,7 +159,7 @@
                                 "max": 10,
                                 "label": "Node count",
                                 "subLabel": "",
-                                "defaultValue": 3,
+                                "defaultValue": 2,
                                 "showStepMarkers": false,
                                 "toolTip": "Number of nodes in the system node pool.",
                                 "constraints": {
@@ -273,18 +275,30 @@
                         "visible": true,
                         "options": {
                             "icon": "Info",
-                            "text": "Leave the URLs below at their defaults for a first install. After the LoadBalancer IPs are assigned, update the extension configuration with the public endpoints."
+                            "text": "Stackguard publishes the dashboard and API on Azure DNS names (<label>-dashboard.<region>.cloudapp.azure.com and <label>-api.<region>.cloudapp.azure.com). Leave the fields below empty to use them, or enter custom URLs if you will point your own domain at the services."
+                        }
+                    },
+                    {
+                        "name": "dnsLabel",
+                        "type": "Microsoft.Common.TextBox",
+                        "label": "DNS label prefix",
+                        "defaultValue": "",
+                        "toolTip": "Optional. Must be unique within the region. Leave empty to generate one.",
+                        "constraints": {
+                            "required": false,
+                            "regex": "^$|^[a-z][a-z0-9-]{1,40}[a-z0-9]$",
+                            "validationMessage": "Use 3-42 lowercase letters, digits or hyphens, starting with a letter."
                         }
                     },
                     {
                         "name": "dashboardUrl",
                         "type": "Microsoft.Common.TextBox",
                         "label": "Dashboard URL",
-                        "defaultValue": "http://localhost:4000",
-                        "toolTip": "Public URL of the Stackguard dashboard.",
+                        "defaultValue": "",
+                        "toolTip": "Optional. Public URL of the Stackguard dashboard if you use your own domain.",
                         "constraints": {
-                            "required": true,
-                            "regex": "^https?://.{1,200}$",
+                            "required": false,
+                            "regex": "^$|^https?://.{1,200}$",
                             "validationMessage": "Enter a valid http or https URL."
                         }
                     },
@@ -292,11 +306,11 @@
                         "name": "apiUrl",
                         "type": "Microsoft.Common.TextBox",
                         "label": "API URL",
-                        "defaultValue": "http://localhost:8080",
-                        "toolTip": "Public URL of the Stackguard API server.",
+                        "defaultValue": "",
+                        "toolTip": "Optional. Public URL of the Stackguard API server if you use your own domain.",
                         "constraints": {
-                            "required": true,
-                            "regex": "^https?://.{1,200}$",
+                            "required": false,
+                            "regex": "^$|^https?://.{1,200}$",
                             "validationMessage": "Enter a valid http or https URL."
                         }
                     }
@@ -318,7 +332,8 @@
             "app-stackguardSecret": "[steps('applicationDetails').stackguardSecret]",
             "app-postgresPassword": "[steps('applicationDetails').postgresPassword]",
             "app-dashboardUrl": "[steps('applicationDetails').dashboardUrl]",
-            "app-apiUrl": "[steps('applicationDetails').apiUrl]"
+            "app-apiUrl": "[steps('applicationDetails').apiUrl]",
+            "app-dnsLabel": "[steps('applicationDetails').dnsLabel]"
         }
     }
 }

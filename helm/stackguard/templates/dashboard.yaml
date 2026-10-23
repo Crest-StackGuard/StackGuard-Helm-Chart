@@ -55,11 +55,6 @@ spec:
                 configMapKeyRef:
                   name: stackguard-config
                   key: STACKGUARD_API_URL
-            - name: STACKGUARD_AI_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: stackguard-config
-                  key: STACKGUARD_AI_URL
           resources:
             {{- toYaml .Values.dashboard.resources | nindent 12 }}
           livenessProbe:
@@ -90,6 +85,10 @@ metadata:
   labels:
     {{- include "stackguard.labels" . | nindent 4 }}
     app: stackguard-dashboard
+  {{- with .Values.dashboard.service.azureDnsLabel }}
+  annotations:
+    service.beta.kubernetes.io/azure-dns-label-name: {{ . | quote }}
+  {{- end }}
 spec:
   type: {{ .Values.dashboard.service.type }}
   selector:

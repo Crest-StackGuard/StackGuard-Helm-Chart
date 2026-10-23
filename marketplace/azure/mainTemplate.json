@@ -34,13 +34,26 @@
                 "description": "Storage class used for all Stackguard persistent volumes."
             }
         },
+        "app-dnsLabel": {
+            "type": "string",
+            "defaultValue": "",
+            "metadata": {
+                "description": "DNS label prefix for the public endpoints. Empty generates a unique one."
+            }
+        },
         "app-dashboardUrl": {
             "type": "string",
-            "defaultValue": "http://localhost:4000"
+            "defaultValue": "",
+            "metadata": {
+                "description": "Custom dashboard URL. Empty uses the generated Azure DNS name."
+            }
         },
         "app-apiUrl": {
             "type": "string",
-            "defaultValue": "http://localhost:8080"
+            "defaultValue": "",
+            "metadata": {
+                "description": "Custom API URL. Empty uses the generated Azure DNS name."
+            }
         },
         "app-serviceType": {
             "type": "string",
@@ -64,7 +77,7 @@
         },
         "vmSize": {
             "type": "string",
-            "defaultValue": "Standard_D8s_v5",
+            "defaultValue": "Standard_D4s_v5",
             "metadata": {
                 "description": "VM size for the AKS node pool."
             }
@@ -75,7 +88,7 @@
         },
         "vmCount": {
             "type": "int",
-            "defaultValue": 3
+            "defaultValue": 2
         },
         "dnsPrefix": {
             "type": "string",
@@ -125,7 +138,11 @@
         "plan-publisher": "DONOTMODIFY",
         "plan-offerID": "DONOTMODIFY",
         "releaseTrain": "DONOTMODIFY",
-        "clusterExtensionTypeName": "DONOTMODIFY"
+        "clusterExtensionTypeName": "DONOTMODIFY",
+        "dnsLabel": "[if(empty(parameters('app-dnsLabel')), concat('sg', uniqueString(resourceGroup().id, parameters('clusterResourceName'))), toLower(parameters('app-dnsLabel')))]",
+        "dashboardDnsLabel": "[concat(variables('dnsLabel'), '-dashboard')]",
+        "apiDnsLabel": "[concat(variables('dnsLabel'), '-api')]",
+        "clusterId": "[resourceId('Microsoft.ContainerService/managedClusters', parameters('clusterResourceName'))]"
     },
     "resources": [
         {
@@ -192,6 +209,9 @@
                     "global.storageClass": "[parameters('app-storageClass')]",
                     "urls.dashboard": "[parameters('app-dashboardUrl')]",
                     "urls.api": "[parameters('app-apiUrl')]",
+                    "global.azureRegion": "[reference(variables('clusterId'), '2025-05-01', 'Full').location]",
+                    "dashboard.service.azureDnsLabel": "[variables('dashboardDnsLabel')]",
+                    "server.service.azureDnsLabel": "[variables('apiDnsLabel')]",
                     "dashboard.service.type": "[parameters('app-serviceType')]",
                     "server.service.type": "[parameters('app-serviceType')]"
                 },
@@ -211,5 +231,14 @@
             ]
         }
     ],
-    "outputs": {}
+    "outputs": {
+        "dashboardHostname": {
+            "type": "string",
+            "value": "[concat(variables('dashboardDnsLabel'), '.', reference(variables('clusterId'), '2025-05-01', 'Full').location, '.cloudapp.azure.com')]"
+        },
+        "apiHostname": {
+            "type": "string",
+            "value": "[concat(variables('apiDnsLabel'), '.', reference(variables('clusterId'), '2025-05-01', 'Full').location, '.cloudapp.azure.com')]"
+        }
+    }
 }

@@ -60,11 +60,6 @@ spec:
                 secretKeyRef:
                   name: stackguard-secrets
                   key: STACKGUARD_DATABASE_URL
-            - name: STACKGUARD_AI_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: stackguard-config
-                  key: STACKGUARD_AI_URL
             - name: STACKGUARD_DASHBOARD_URL
               valueFrom:
                 configMapKeyRef:
@@ -100,6 +95,10 @@ metadata:
   labels:
     {{- include "stackguard.labels" . | nindent 4 }}
     app: stackguard-server
+  {{- with .Values.server.service.azureDnsLabel }}
+  annotations:
+    service.beta.kubernetes.io/azure-dns-label-name: {{ . | quote }}
+  {{- end }}
 spec:
   type: {{ .Values.server.service.type }}
   selector:
