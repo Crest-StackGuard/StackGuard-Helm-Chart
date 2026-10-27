@@ -38,6 +38,8 @@ urls:
   # Empty -> http://<azureDnsLabel>.<azureRegion>.cloudapp.azure.com:<port>.
   dashboard: ""
   api: ""
+  # Required by the app images although the AI service was removed. Empty -> API URL.
+  ai: ""
 
 secrets:
   # Overridden per-install through configurationProtectedSettings. Must be exactly 32 characters.

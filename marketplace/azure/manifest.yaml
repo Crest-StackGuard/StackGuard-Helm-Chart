@@ -1,7 +1,7 @@
 applicationName: io.stackguard.stackguard
 publisher: "Stackguard"
 description: "Stackguard security platform - dashboard, API server, and PostgreSQL."
-version: 1.0.3 # Must be in the format #.#.#
+version: 1.0.4 # Must be in the format #.#.#
 helmChart: "./stackguard"
 clusterArmTemplate: "./mainTemplate.json"
 uiDefinition: "./createUIDefinition.json"

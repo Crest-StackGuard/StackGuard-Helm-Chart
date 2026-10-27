@@ -20,6 +20,8 @@ urls:
   # else http://localhost:<port>. Set after LoadBalancer IPs are assigned, then upgrade.
   dashboard: ""
   api: ""
+  # Required by the app images although the AI service was removed. Empty -> API URL.
+  ai: ""
 
 secrets:
   # Must be EXACTLY 32 characters. Generate: openssl rand -hex 16

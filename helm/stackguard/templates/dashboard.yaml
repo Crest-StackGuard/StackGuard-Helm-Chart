@@ -55,6 +55,11 @@ spec:
                 configMapKeyRef:
                   name: stackguard-config
                   key: STACKGUARD_API_URL
+            - name: STACKGUARD_AI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_AI_URL
           resources:
             {{- toYaml .Values.dashboard.resources | nindent 12 }}
           livenessProbe:

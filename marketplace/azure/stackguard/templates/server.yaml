@@ -60,6 +60,11 @@ spec:
                 secretKeyRef:
                   name: stackguard-secrets
                   key: STACKGUARD_DATABASE_URL
+            - name: STACKGUARD_AI_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_AI_URL
             - name: STACKGUARD_DASHBOARD_URL
               valueFrom:
                 configMapKeyRef:
