@@ -4,6 +4,12 @@ kubernetes_version = null
 node_count         = 1
 node_instance_type = "m6i.4xlarge"
 
+# Ubuntu EKS AMI only. Set explicitly when you want a pinned AMI (IDs change often).
+# Leave null to resolve via Canonical SSM (eks-pro / ubuntu_os_version / cluster version).
+# node_ami_id = "ami-xxxxxxxx"
+# ubuntu_os_version = "24.04"
+# node_ami_ssm_parameter = "/aws/service/canonical/ubuntu/eks-pro/24.04/1.37/stable/current/amd64/hvm/ebs-gp3/ami-id"
+
 tags = {
   environment = "prod"
   owner       = "platform-team"

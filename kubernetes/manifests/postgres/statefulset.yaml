@@ -4,9 +4,11 @@ metadata:
   name: stackguard-postgres
   namespace: ${STACKGUARD_NAMESPACE}
   annotations:
-    stackguard.io/horizontal-scaling: "disabled"
+    stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
 spec:
   serviceName: stackguard-postgres
+  # Always exactly one Postgres pod.
   replicas: 1
   selector:
     matchLabels:

@@ -25,10 +25,12 @@ metadata:
     {{- include "stackguard.labels" . | nindent 4 }}
     app: stackguard-postgres
   annotations:
-    stackguard.io/horizontal-scaling: "disabled"
+    stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
 spec:
   serviceName: stackguard-postgres
-  replicas: {{ .Values.postgres.replicas }}
+  # Always exactly one Postgres pod.
+  replicas: 1
   selector:
     matchLabels:
       app: stackguard-postgres
@@ -37,7 +39,6 @@ spec:
       labels:
         app: stackguard-postgres
         {{- include "stackguard.selectorLabels" . | nindent 8 }}
-        {{- include "stackguard.billingLabels" . | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -46,7 +47,7 @@ spec:
       restartPolicy: Always
       containers:
         - name: postgres
-          image: {{ include "stackguard.image" (dict "ctx" $ "key" "postgres") }}
+          image: {{ include "stackguard.image" (dict "image" .Values.images.postgres) }}
           imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
           ports:
             - containerPort: {{ .Values.postgres.service.port }}

@@ -10,12 +10,19 @@ secrets:
 #   databaseUrl: postgresql://stackguard:<password>@stackguard-postgres:5432/stackguard?sslmode=disable
 
 urls:
-  dashboard: http://localhost:4000
-  api: http://localhost:8080
+  # Public address people open (API + UI on the same port).
+  application: http://localhost:8080
 
-# Pin image tags for production
+# Marketplace / sizing (optional). Same knobs as values.marketplace.yaml.example
+# application:
+#   resources:
+#     requests: { cpu: "4", memory: 8Gi }
+#     limits:   { cpu: "4", memory: 8Gi }
+#   persistence:
+#     size: 10Gi
+
+# Pin the application tag for production
 # images:
-#   dashboard:
-#     tag: "1.0.0"
-#   server:
-#     tag: "1.0.0"
+#   application:
+#     tag: "2.0.0"
+

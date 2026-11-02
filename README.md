@@ -1,6 +1,6 @@
-# Stackguard on Kubernetes (AKS / EKS / GKE)
+# StackGuard on Kubernetes (AKS / EKS / GKE)
 
-Deploy Stackguard on managed Kubernetes. Same app manifests for all clouds — only the Terraform layer changes.
+Deploy StackGuard on managed Kubernetes. Same app manifests for all clouds — only the Terraform layer changes.
 
 **Prefer Helm?** See [`helm/README.md`](helm/README.md) for `helm install` from public ECR (recommended for new deployments).
 
@@ -12,14 +12,18 @@ Deploy Stackguard on managed Kubernetes. Same app manifests for all clouds — o
 
 | Service | Port | Public? |
 |---------|------|---------|
-| Dashboard | 4000 | Yes (LoadBalancer) |
-| Server (API) | 8080 | Yes (LoadBalancer) |
-| AI | 8000 | Yes (LoadBalancer) |
+| Application (API + UI) | 8080 | Yes (LoadBalancer) |
 | Postgres | 5432 | No (internal only) |
 
-- 1 pod per service (no horizontal scaling)
-- 10 GiB persistent disk per service
-- Vertical scaling only (change CPU/RAM in config files)
+- One application image: `public.ecr.aws/stackguard-io/stackguard-application`
+- Postgres 17
+- No license key. After start, open the site, enter name and email, wait for approval, then sign in with the emailed password.
+- Cloud account vs local is detected by the application from instance metadata (AWS account ID, Azure subscription ID, GCP project ID). Do not pass CSP or cloud id env vars.
+- Always **exactly 1** `stackguard-application` pod (never scale out the golang server)
+- No HPA, no VPA, no node/cluster autoscaling (`vmEnableAutoScale=false`). Vertical only: raise CPU/RAM + node VM size
+- Ubuntu only on the StackGuard node (AKS `Ubuntu2204`, GKE `UBUNTU_CONTAINERD`, EKS Canonical Ubuntu AMI — never Amazon Linux / Azure Linux / COS)
+- 10 GiB persistent disk per service (app disk is user-overridable)
+- Azure Marketplace (Helm + optional AKS create): [`marketplace/azure/README.md`](marketplace/azure/README.md)
 
 ---
 
@@ -75,7 +79,7 @@ openssl rand -hex 16
 STACKGUARD_DATABASE_URL=postgresql://stackguard:<POSTGRES_PASSWORD>@stackguard-postgres:5432/stackguard?sslmode=disable
 ```
 
-Leave the three `localhost` URLs for now — you fix them in Step 6.
+Leave `STACKGUARD_APPLICATION_URL=http://localhost:8080` for now — you fix it in Step 5.
 
 ---
 
@@ -105,6 +109,8 @@ terraform init && terraform apply
 aws eks update-kubeconfig --region ap-south-1 --name eks-stackguard-prod
 ```
 
+Terraform sets IMDS hop limit **2**, installs EBS CSI + `gp3`, and uses a **Canonical Ubuntu EKS AMI** (`node_ami_id` or SSM lookup — never Amazon Linux). Node autoscaling stays off (`min=max=desired=1`).
+
 ### GKE
 
 ```bash
@@ -116,6 +122,8 @@ gcloud container clusters get-credentials gke-stackguard-prod \
   --region asia-south1 --project <your-project-id>
 ```
 
+Terraform sets node `workload_metadata_config.mode = GCE_METADATA` so pods can read the GCP project ID.
+
 Confirm the cluster works:
 
 ```bash
@@ -124,7 +132,7 @@ kubectl get nodes
 
 ---
 
-## Step 4 — Deploy Stackguard
+## Step 4 — Deploy StackGuard
 
 ```bash
 cd ../../../kubernetes
@@ -132,7 +140,7 @@ cd ../../../kubernetes
 ./scripts/apply.sh values/stackguard.env values/cloud.env
 ```
 
-Wait until all 4 pods are Running:
+Wait until both pods are Running:
 
 ```bash
 kubectl get pods -n stackguard -w
@@ -141,47 +149,43 @@ kubectl get pods -n stackguard -w
 You want:
 
 ```text
-stackguard-dashboard-...   1/1   Running
-stackguard-ai-...          1/1   Running
-stackguard-server-...      1/1   Running
-stackguard-postgres-0      1/1   Running
+stackguard-application-...   1/1   Running
+stackguard-postgres-0        1/1   Running
 ```
 
 Press `Ctrl+C` to stop watching.
 
 ---
 
-## Step 5 — Get public IPs and fix URLs
+## Step 5 — Get the public IP and fix the URL
 
 ```bash
-kubectl get svc -n stackguard
+kubectl get svc -n stackguard stackguard-application
 ```
 
-Copy the **EXTERNAL-IP** for dashboard, server, and ai. Edit `values/stackguard.env`:
+Copy the **EXTERNAL-IP**. Edit `values/stackguard.env`:
 
 ```bash
-STACKGUARD_DASHBOARD_URL=http://<dashboard-ip>:4000
-STACKGUARD_API_URL=http://<server-ip>:8080
-STACKGUARD_AI_URL=http://<ai-ip>:8000
+STACKGUARD_APPLICATION_URL=http://<application-ip>:8080
 ```
 
-Apply again and restart apps:
+Apply again and restart:
 
 ```bash
 ./scripts/apply.sh values/stackguard.env values/cloud.env
 
-kubectl rollout restart deployment -n stackguard \
-  stackguard-dashboard stackguard-ai stackguard-server
+kubectl rollout restart deployment -n stackguard stackguard-application
 ```
 
-Open in browser: **http://\<dashboard-ip\>:4000**
+Open in the browser: **http://\<application-ip\>:8080**
+
+Enter your full name and email to ask for approval. After an admin approves, refresh and sign in with the password from the email. Then set a new password and accept the terms if asked.
 
 ---
 
 ## Step 6 — Check status
 
 ```bash
-# Everything running?
 kubectl get pods -n stackguard
 kubectl get svc -n stackguard
 kubectl get pvc -n stackguard
@@ -191,25 +195,11 @@ kubectl get pvc -n stackguard
 
 ## Step 7 — Check logs
 
-**Dashboard**
+**Application**
 
 ```bash
-kubectl logs -n stackguard -l app=stackguard-dashboard --tail=100
-kubectl logs -n stackguard -l app=stackguard-dashboard -f
-```
-
-**AI**
-
-```bash
-kubectl logs -n stackguard -l app=stackguard-ai --tail=100
-kubectl logs -n stackguard -l app=stackguard-ai -f
-```
-
-**Server**
-
-```bash
-kubectl logs -n stackguard -l app=stackguard-server --tail=100
-kubectl logs -n stackguard -l app=stackguard-server -f
+kubectl logs -n stackguard -l app=stackguard-application --tail=100
+kubectl logs -n stackguard -l app=stackguard-application -f
 ```
 
 **Postgres**
@@ -219,30 +209,11 @@ kubectl logs -n stackguard stackguard-postgres-0 --tail=100
 kubectl logs -n stackguard stackguard-postgres-0 -f
 ```
 
-**After a crash** (see what happened before restart):
+**After a crash**
 
 ```bash
-kubectl logs -n stackguard -l app=stackguard-server --previous
-kubectl logs -n stackguard -l app=stackguard-ai --previous
-kubectl logs -n stackguard stackguard-postgres-0 --previous
-```
-
-**Why is a pod failing?**
-
-```bash
-kubectl describe pod -n stackguard -l app=stackguard-server
-kubectl describe pod -n stackguard -l app=stackguard-ai
-kubectl describe pod -n stackguard -l app=stackguard-dashboard
-kubectl describe pod -n stackguard stackguard-postgres-0
-```
-
-**All pods at once**
-
-```bash
-for p in $(kubectl get pods -n stackguard -o name); do
-  echo "=== $p ==="
-  kubectl logs -n stackguard "$p" --tail=30
-done
+kubectl logs -n stackguard -l app=stackguard-application --previous
+kubectl describe pod -n stackguard -l app=stackguard-application
 ```
 
 ---
@@ -257,7 +228,9 @@ done
 | AKS quota error `standardDSv3Family` | Azure Portal → Subscriptions → Usage + quotas → Central India → increase **Standard DSv3 Family vCPUs** to at least 16 |
 | Pod stuck `Pending` | Single node ran out of CPU during restart. Run `kubectl get pods -n stackguard` and delete the old/terminating pod |
 | LoadBalancer `<pending>` | Wait 2–5 min. Check Azure/AWS/GCP LB quota |
-| Config change not picked up | Re-run `./scripts/apply.sh` then `kubectl rollout restart deployment -n stackguard <name>` |
+| App detects as `local` / missing cloud ID | Pods must reach instance metadata. **EKS:** IMDS hop limit **2** (Terraform launch template). Live fix: `aws ec2 modify-instance-metadata-options --instance-id <id> --http-put-response-hop-limit 2 --http-tokens required` then restart app. **AKS:** do not block `169.254.169.254`. **GKE:** node metadata mode `GCE_METADATA`. Confirm: `kubectl logs -n stackguard -l app=stackguard-application \| grep -E 'AWS detected\|Azure detected\|GCP detected'` |
+| Config change not picked up | Re-run `./scripts/apply.sh` then `kubectl rollout restart deployment -n stackguard stackguard-application` |
+| Site asks for approval again | Approval is tied to the cloud account the app detects, or to the email on a local install |
 
 ---
 
@@ -267,7 +240,7 @@ Edit `kubernetes/values/stackguard.env`, then:
 
 ```bash
 ./scripts/apply.sh values/stackguard.env values/cloud.env
-kubectl rollout restart deployment -n stackguard stackguard-dashboard stackguard-ai stackguard-server
+kubectl rollout restart deployment -n stackguard stackguard-application
 ```
 
 To scale the node VM, edit `terraform.tfvars` and run `terraform apply`.
@@ -277,7 +250,7 @@ To scale the node VM, edit `terraform.tfvars` and run `terraform apply`.
 ## Delete everything
 
 ```bash
-# Remove Stackguard
+# Remove StackGuard
 kubectl delete namespace stackguard
 
 # Remove cluster
@@ -291,10 +264,8 @@ terraform destroy
 
 | Service | CPU | RAM | Disk |
 |---------|-----|-----|------|
-| Dashboard | 2 | 4 GiB | 10 GiB |
-| AI | 2 | 4 GiB | 10 GiB |
-| Server | 4 | 8 GiB | 10 GiB |
-| Postgres | 2 | 4 GiB | 10 GiB |
+| Application | 4 | 8 GiB | 10 GiB |
+| Postgres | 4 | 8 GiB | 10 GiB |
 
 | Cloud | Node VM |
 |-------|---------|

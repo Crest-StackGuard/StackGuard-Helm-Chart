@@ -1,2 +1,7 @@
 global:
   storageClass: managed-csi
+
+# StackGuard application runs only on Ubuntu-labeled nodes (set by AKS Terraform / os_sku=Ubuntu2204).
+application:
+  nodeSelector:
+    stackguard.io/os: ubuntu

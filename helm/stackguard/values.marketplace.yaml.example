@@ -1,0 +1,22 @@
+# Azure Marketplace / Partner Center — map UI fields to THESE Helm values only.
+# Use with: -f values-aks.yaml -f values.marketplace.yaml
+#
+# Offer A (Helm on existing AKS): CPU + RAM + disk
+# Offer B (create AKS + Helm): same, plus node VM size in AKS Terraform (node_vm_size)
+#   — not a Helm value.
+#
+# NEVER expose / set via Marketplace:
+#   - application.replicas (forbidden — always 1)
+#   - subscription ID / cloud id (IMDS only)
+#   - vmEnableAutoScale / HPA / node count
+
+application:
+  resources:
+    requests:
+      cpu: "4"      # UI: App CPU
+      memory: 8Gi   # UI: App RAM
+    limits:
+      cpu: "4"      # keep equal to requests
+      memory: 8Gi
+  persistence:
+    size: 10Gi      # UI: App disk

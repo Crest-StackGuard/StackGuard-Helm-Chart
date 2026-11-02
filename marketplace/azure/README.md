@@ -1,77 +1,45 @@
-# Stackguard — Azure Marketplace CNAB bundle
+# Azure Marketplace (Helm + AKS Terraform only)
 
-Artifacts required to publish Stackguard as a **Kubernetes application** container
-offer on the Azure Marketplace, packaged as a Cloud Native Application Bundle (CNAB).
+We maintain **Helm** + **AKS Terraform** knobs. Partner Center / CreateUIDefinition wiring is out of scope here — map the Marketplace UI to the values below.
 
-```
-marketplace/azure/
-├── manifest.yaml            # CNAB package manifest consumed by the cpa tool
-├── mainTemplate.json        # ARM template: optional AKS cluster + cluster extension
-├── createUIDefinition.json  # Azure portal create experience
-├── stackguard/              # Helm chart shipped inside the bundle
-├── sync-chart.sh            # Refreshes stackguard/ from helm/stackguard
-└── build-bundle.sh          # Runs cpa verify / buildbundle in Docker
-```
+## Both offers
 
-## How this differs from `helm/stackguard`
+| Offer | What runs | UI asks |
+|-------|-----------|---------|
+| **A** Helm on existing AKS | `helm install` + `values-aks.yaml` | App **CPU**, **RAM**, **disk** |
+| **B** Create AKS + Helm | AKS Terraform (Ubuntu, autoscale off) then same Helm | Same + **node VM size** |
 
-The bundled chart shares its templates with the public chart; only `values.yaml`
-differs. `sync-chart.sh` copies `Chart.yaml` and `templates/` from
-`helm/stackguard` and drops `namespace.yaml`, because the AKS cluster extension
-creates and owns the release namespace.
+## Map UI → code
 
-Marketplace-specific behaviour in the shared templates:
+| UI field | Offer | Where |
+|----------|-------|--------|
+| App CPU | A, B | Helm `application.resources.requests.cpu` + `limits.cpu` |
+| App RAM | A, B | Helm `application.resources.requests.memory` + `limits.memory` |
+| App disk | A, B | Helm `application.persistence.size` |
+| Node VM size | **B only** | AKS Terraform `node_vm_size` |
 
-- Images resolve from `global.azure.images.<component>` when present, which is the
-  block the packaging tool rewrites to point at the Microsoft-owned ACR. Without
-  that block the chart falls back to the normal `images.*` values.
-- Pod specs carry the `azure-extensions-usage-release-identifier` label, required
-  for per-core/per-node/per-pod billing models. The label is only emitted when
-  `global.azure` is set, so the public chart is unaffected.
-- Resources default to `.Release.Namespace` when `namespace` is empty.
-
-## Parameter flow
-
-`createUIDefinition.json` → `mainTemplate.json` parameters → extension
-`configurationSettings` / `configurationProtectedSettings` → Helm values.
-
-| Portal input | Helm value |
-| --- | --- |
-| Storage class | `global.storageClass` |
-| Service exposure | `dashboard/server.service.type` |
-| Dashboard / API URL | `urls.*` |
-| Stackguard secret (protected) | `secrets.stackguardSecret` |
-| PostgreSQL password (protected) | `secrets.postgres.password` |
-
-## Before you build
-
-1. Create an ACR in the same Entra tenant as your Partner Center account and set
-   `registryServer` in `manifest.yaml`.
-2. Grant the marketplace first-party app `32597670-3e15-4def-8851-614ff48c1efa`
-   the `acrpull` role on that registry and register the
-   `Microsoft.PartnerCenterIngestion` provider on the subscription.
-3. Confirm the image tags in `stackguard/values.yaml` are pinned to an immutable,
-   vulnerability-scanned release rather than `latest`.
-4. Bump `version` in `manifest.yaml` for every submission — CNAB tags are immutable
-   once attached to an offer.
-
-## Build and publish
+Example Helm overrides: [`../../helm/stackguard/values.marketplace.yaml.example`](../../helm/stackguard/values.marketplace.yaml.example)
 
 ```bash
-./sync-chart.sh          # only if the source chart changed
-helm lint ./stackguard
-./build-bundle.sh <your-registry-name>
+helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
+  --version <chart-version> \
+  -f values-aks.yaml \
+  -f values.marketplace.yaml \
+  -f values.local.yaml   # secrets
 ```
 
-`build-bundle.sh` mounts this directory into `mcr.microsoft.com/container-package-app`
-and runs `cpa verify` followed by `cpa buildbundle`. The tool requires Docker and
-a linux/amd64 host. Once the bundle is pushed, reference the CNAB from your
-Partner Center Kubernetes application offer.
+## Fixed (not in UI)
 
-## Limitations to keep in mind
+| Rule | Enforcement |
+|------|-------------|
+| 1 app pod only | Helm `replicas: 1` (setting `application.replicas` fails) |
+| Autoscale off | AKS `enable_auto_scaling=false` (`vmEnableAutoScale=false`) |
+| Ubuntu only | AKS `os_sku=Ubuntu2204` + Helm `nodeSelector: stackguard.io/os=ubuntu` |
+| **Subscription ID** | **IMDS only** (`169.254.169.254` + `Metadata: true`) — never Helm / Marketplace |
 
-- Marketplace supports linux/amd64 images only.
-- One offer targets either managed AKS or Arc-enabled Kubernetes, not both.
-- All images end up in a **public** Microsoft ACR regardless of plan visibility.
-- No images or charts may be downloaded at deployment time; everything must be in
-  the bundle.
+Confirm after install:
+
+```bash
+kubectl logs -n stackguard -l app=stackguard-application --tail=50 | grep -E 'Azure detected|provider='
+# expect: Azure detected - ID: <subscriptionId>
+```

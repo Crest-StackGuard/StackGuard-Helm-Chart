@@ -13,6 +13,9 @@ resource "azurerm_log_analytics_workspace" "this" {
   tags                = var.tags
 }
 
+# StackGuard reads the Azure subscription ID from Instance Metadata Service (IMDS)
+# at http://169.254.169.254/metadata/instance/... (header Metadata: true).
+# AKS exposes IMDS to pods by default — do not block 169.254.169.254/32 in NetworkPolicy.
 resource "azurerm_kubernetes_cluster" "this" {
   name                = var.aks_cluster_name
   location            = azurerm_resource_group.this.location
@@ -26,8 +29,18 @@ resource "azurerm_kubernetes_cluster" "this" {
     node_count = var.node_count
     vm_size    = var.node_vm_size
 
-    # No horizontal scaling in this template.
+    # Ubuntu only. Do not use Azure Linux, CBL-Mariner, or Windows.
+    # Marketplace / CreateUIDefinition: set osSKU=Ubuntu2204 and vmEnableAutoScale=false.
+    os_sku  = "Ubuntu2204"
+    os_type = "Linux"
+
+    # Autoscaling OFF everywhere (vmEnableAutoScale=false). Grow VM size / pod CPU+RAM only.
     enable_auto_scaling = false
+
+    node_labels = {
+      "stackguard.io/os"       = "ubuntu"
+      "stackguard.io/workload" = "stackguard"
+    }
   }
 
   network_profile {
