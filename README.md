@@ -10,17 +10,19 @@ Deploy StackGuard on managed Kubernetes. Same app manifests for all clouds — o
 
 ## What you get
 
-| Service | Port | Public? |
-|---------|------|---------|
+| Service                | Port | Public?            |
+| ---------------------- | ---- | ------------------ |
 | Application (API + UI) | 8080 | Yes (LoadBalancer) |
-| Postgres | 5432 | No (internal only) |
+| Postgres               | 5432 | No (internal only) |
 
-- One application image: `public.ecr.aws/stackguard-io/stackguard-application`
+- One application image: `public.ecr.aws/stackguard-io/stackguard`
 - Postgres 17
 - No license key. After start, open the site, enter name and email, wait for approval, then sign in with the emailed password.
 - Cloud account vs local is detected by the application from instance metadata (AWS account ID, Azure subscription ID, GCP project ID). Do not pass CSP or cloud id env vars.
 - Always **exactly 1** `stackguard-application` pod (never scale out the golang server)
 - No HPA, no VPA, no node/cluster autoscaling (`vmEnableAutoScale=false`). Vertical only: raise CPU/RAM + node VM size
+- Default **one node**: **8 vCPU, 16 GiB RAM** (EKS `c6i.2xlarge`, AKS `Standard_F8s_v2`, GKE `e2-custom-8-16384`)
+- Default **pod requests**: application **4 CPU / 8 GiB**, Postgres **2 CPU / 4 GiB** (fits that node with kube-system headroom)
 - Ubuntu only on the StackGuard node (AKS `Ubuntu2204`, GKE `UBUNTU_CONTAINERD`, EKS Canonical Ubuntu AMI — never Amazon Linux / Azure Linux / COS)
 - 10 GiB persistent disk per service (app disk is user-overridable)
 - Azure Marketplace (Helm + optional AKS create): [`marketplace/azure/README.md`](marketplace/azure/README.md)
@@ -220,17 +222,17 @@ kubectl describe pod -n stackguard -l app=stackguard-application
 
 ## Common problems
 
-| Problem | Fix |
-|---------|-----|
-| `STACKGUARD_SECRET must be exactly 32 characters` | Run `openssl rand -hex 16`, put result in `STACKGUARD_SECRET` |
-| `SSL is not enabled on the server` | Add `?sslmode=disable` to end of `STACKGUARD_DATABASE_URL` |
-| Postgres crash — `lost+found` | Already fixed in template. Reset: `kubectl delete statefulset -n stackguard stackguard-postgres` then `kubectl delete pvc -n stackguard postgres-data-stackguard-postgres-0` then re-run `apply.sh` |
-| AKS quota error `standardDSv3Family` | Azure Portal → Subscriptions → Usage + quotas → Central India → increase **Standard DSv3 Family vCPUs** to at least 16 |
-| Pod stuck `Pending` | Single node ran out of CPU during restart. Run `kubectl get pods -n stackguard` and delete the old/terminating pod |
-| LoadBalancer `<pending>` | Wait 2–5 min. Check Azure/AWS/GCP LB quota |
-| App detects as `local` / missing cloud ID | Pods must reach instance metadata. **EKS:** IMDS hop limit **2** (Terraform launch template). Live fix: `aws ec2 modify-instance-metadata-options --instance-id <id> --http-put-response-hop-limit 2 --http-tokens required` then restart app. **AKS:** do not block `169.254.169.254`. **GKE:** node metadata mode `GCE_METADATA`. Confirm: `kubectl logs -n stackguard -l app=stackguard-application \| grep -E 'AWS detected\|Azure detected\|GCP detected'` |
-| Config change not picked up | Re-run `./scripts/apply.sh` then `kubectl rollout restart deployment -n stackguard stackguard-application` |
-| Site asks for approval again | Approval is tied to the cloud account the app detects, or to the email on a local install |
+| Problem                                           | Fix                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `STACKGUARD_SECRET must be exactly 32 characters` | Run `openssl rand -hex 16`, put result in `STACKGUARD_SECRET`                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `SSL is not enabled on the server`                | Add `?sslmode=disable` to end of `STACKGUARD_DATABASE_URL`                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Postgres crash — `lost+found`                     | Already fixed in template. Reset: `kubectl delete statefulset -n stackguard stackguard-postgres` then `kubectl delete pvc -n stackguard postgres-data-stackguard-postgres-0` then re-run `apply.sh`                                                                                                                                                                                                                                                             |
+| AKS quota error `standardDSv3Family`              | Azure Portal → Subscriptions → Usage + quotas → Central India → increase **Standard DSv3 Family vCPUs** to at least 16                                                                                                                                                                                                                                                                                                                                          |
+| Pod stuck `Pending`                               | Single node ran out of CPU during restart. Run `kubectl get pods -n stackguard` and delete the old/terminating pod                                                                                                                                                                                                                                                                                                                                              |
+| LoadBalancer `<pending>`                          | Wait 2–5 min. Check Azure/AWS/GCP LB quota                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| App detects as `local` / missing cloud ID         | Pods must reach instance metadata. **EKS:** IMDS hop limit **2** (Terraform launch template). Live fix: `aws ec2 modify-instance-metadata-options --instance-id <id> --http-put-response-hop-limit 2 --http-tokens required` then restart app. **AKS:** do not block `169.254.169.254`. **GKE:** node metadata mode `GCE_METADATA`. Confirm: `kubectl logs -n stackguard -l app=stackguard-application \| grep -E 'AWS detected\|Azure detected\|GCP detected'` |
+| Config change not picked up                       | Re-run `./scripts/apply.sh` then `kubectl rollout restart deployment -n stackguard stackguard-application`                                                                                                                                                                                                                                                                                                                                                      |
+| Site asks for approval again                      | Approval is tied to the cloud account the app detects, or to the email on a local install                                                                                                                                                                                                                                                                                                                                                                       |
 
 ---
 
@@ -262,19 +264,19 @@ terraform destroy
 
 ## Default sizing
 
-| Service | CPU | RAM | Disk |
-|---------|-----|-----|------|
-| Application | 4 | 8 GiB | 10 GiB |
-| Postgres | 4 | 8 GiB | 10 GiB |
+| Service     | CPU | RAM   | Disk   |
+| ----------- | --- | ----- | ------ |
+| Application | 4   | 8 GiB | 10 GiB |
+| Postgres    | 4   | 8 GiB | 10 GiB |
 
-| Cloud | Node VM |
-|-------|---------|
-| AKS | `Standard_D16s_v3` (16 vCPU) |
-| EKS | `m6i.4xlarge` |
-| GKE | `n2-standard-16` |
+| Cloud | Node VM                              |
+| ----- | ------------------------------------ |
+| AKS   | `Standard_F8s_v2` (8 vCPU, 16 GiB)   |
+| EKS   | `c6i.2xlarge` (8 vCPU, 16 GiB)       |
+| GKE   | `e2-custom-8-16384` (8 vCPU, 16 GiB) |
 
 | Cloud | Storage class (`cloud.env`) |
-|-------|----------------------------|
-| AKS | `managed-csi` |
-| EKS | `gp3` |
-| GKE | `standard-rwo` |
+| ----- | --------------------------- |
+| AKS   | `managed-csi`               |
+| EKS   | `gp3`                       |
+| GKE   | `standard-rwo`              |

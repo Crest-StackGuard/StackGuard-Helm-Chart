@@ -32,9 +32,9 @@ variable "node_count" {
 }
 
 variable "node_machine_type" {
-  description = "GCE machine type for nodes (vertical sizing control)."
+  description = "GCE machine type for nodes (vertical sizing control). Default 8 vCPU, 16 GiB RAM."
   type        = string
-  default     = "n2-standard-16"
+  default     = "e2-custom-8-16384"
 }
 
 variable "labels" {

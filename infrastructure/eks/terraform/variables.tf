@@ -27,9 +27,9 @@ variable "node_count" {
 }
 
 variable "node_instance_type" {
-  description = "EC2 instance type for the node group (vertical sizing only — never add nodes or app pods)."
+  description = "EC2 instance type for the node group (vertical sizing only — never add nodes or app pods). Default 8 vCPU, 16 GiB RAM."
   type        = string
-  default     = "m6i.4xlarge"
+  default     = "c6i.2xlarge"
 }
 
 variable "node_ami_id" {

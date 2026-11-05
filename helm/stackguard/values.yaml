@@ -32,7 +32,7 @@ secrets:
 images:
   application:
     registry: public.ecr.aws
-    repository: stackguard-io/stackguard-application
+    repository: stackguard-io/stackguard
     tag: latest
     pullPolicy: Always
   postgres:
@@ -43,6 +43,7 @@ images:
 
 # Application: ALWAYS exactly 1 pod / 1 container. No replicas key. No HPA. No VPA.
 # Horizontal scale is forbidden. Raise application.resources + node VM size only.
+# Default pod sizing targets one node: 8 vCPU / 16 GiB (app 4+8Gi, postgres 2+4Gi).
 # Cloud overlays (values-eks/aks/gke.yaml) pin nodeSelector stackguard.io/os=ubuntu.
 #
 # Azure Marketplace UI should only override:
@@ -76,19 +77,18 @@ postgres:
   service:
     type: ClusterIP
     port: 5432
+  # Sized to fit app + postgres on one 8 vCPU / 16 GiB node (see Terraform defaults).
   resources:
     requests:
-      cpu: "4"
-      memory: 8Gi
+      cpu: "2"
+      memory: 4Gi
     limits:
-      cpu: "4"
-      memory: 8Gi
+      cpu: "2"
+      memory: 4Gi
   persistence:
     size: 10Gi
-
 
 # Permissive by default so pods can reach cloud metadata (169.254.169.254 /
 # metadata.google.internal). If you tighten egress, keep those destinations.
 networkPolicy:
   enabled: true
-

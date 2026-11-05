@@ -10,10 +10,10 @@ Deploy StackGuard with a single Helm release on any Kubernetes cluster (AKS, EKS
 
 ## What you get
 
-| Service | Port | Public? |
-|---------|------|---------|
+| Service                | Port | Public?            |
+| ---------------------- | ---- | ------------------ |
 | Application (API + UI) | 8080 | Yes (LoadBalancer) |
-| Postgres | 5432 | No (internal only) |
+| Postgres               | 5432 | No (internal only) |
 
 - One application image from public ECR
 - Postgres 17
@@ -278,16 +278,16 @@ kubectl delete pvc -n stackguard --all
 
 ## Default sizing
 
-| Service | CPU | RAM | Disk |
-|---------|-----|-----|------|
-| Application | 4 | 8 GiB | 10 GiB |
-| Postgres | 4 | 8 GiB | 10 GiB |
+| Service     | CPU | RAM   | Disk   |
+| ----------- | --- | ----- | ------ |
+| Application | 4   | 8 GiB | 10 GiB |
+| Postgres    | 4   | 8 GiB | 10 GiB |
 
-| Cloud | Recommended node VM | Storage class |
-|-------|---------------------|---------------|
-| AKS | `Standard_D16s_v3` (16 vCPU) | `managed-csi` |
-| EKS | `m6i.4xlarge` | `gp3` |
-| GKE | `n2-standard-16` | `standard-rwo` |
+| Cloud | Recommended node VM                  | Storage class  |
+| ----- | ------------------------------------ | -------------- |
+| AKS   | `Standard_F8s_v2` (8 vCPU, 16 GiB)   | `managed-csi`  |
+| EKS   | `c6i.2xlarge` (8 vCPU, 16 GiB)       | `gp3`          |
+| GKE   | `e2-custom-8-16384` (8 vCPU, 16 GiB) | `standard-rwo` |
 
 ---
 
@@ -295,11 +295,11 @@ kubectl delete pvc -n stackguard --all
 
 StackGuard reads cloud identity from the node metadata service — **never** from Helm values:
 
-| Cloud | ID field | Metadata endpoint |
-|-------|----------|-------------------|
-| AWS (EKS) | Account ID | `169.254.169.254` IMDSv2 |
-| Azure (AKS) | Subscription ID | `169.254.169.254` + `Metadata: true` |
-| GCP (GKE) | Project ID | `metadata.google.internal` + `Metadata-Flavor: Google` |
+| Cloud       | ID field        | Metadata endpoint                                      |
+| ----------- | --------------- | ------------------------------------------------------ |
+| AWS (EKS)   | Account ID      | `169.254.169.254` IMDSv2                               |
+| Azure (AKS) | Subscription ID | `169.254.169.254` + `Metadata: true`                   |
+| GCP (GKE)   | Project ID      | `metadata.google.internal` + `Metadata-Flavor: Google` |
 
 Infrastructure requirements (covered by [`../infrastructure/`](../infrastructure/) Terraform):
 
@@ -309,32 +309,32 @@ Infrastructure requirements (covered by [`../infrastructure/`](../infrastructure
 
 ## Common problems
 
-| Problem | Fix |
-|---------|-----|
-| `global.storageClass is required` | Pass `-f values-eks.yaml` (or aks/gke), or `--set global.storageClass=gp3` |
-| `secrets.stackguardSecret is required` | Set in `values.local.yaml` — exactly 32 chars (`openssl rand -hex 16`) |
-| `SSL is not enabled on the server` | Database URL must end with `?sslmode=disable` |
-| Pod stuck `Pending` | Insufficient CPU on node — check `kubectl describe pod`, free resources or add nodes |
-| LoadBalancer `<pending>` | Wait 2–5 min; check cloud LB quota |
-| Config change not picked up | `helm upgrade ...` then `kubectl rollout restart deployment/stackguard-application` |
-| Postgres crash — `lost+found` | Delete StatefulSet + postgres PVC, then `helm upgrade` again |
-| Image pull errors | Images are public — check network/egress to `public.ecr.aws` |
-| Detects as `local` / missing cloud ID | See **Cloud detection** above. On a live EKS node: `aws ec2 modify-instance-metadata-options --instance-id <id> --http-put-response-hop-limit 2 --http-tokens required`, then restart the app pod. Confirm NetworkPolicy allows metadata egress. |
+| Problem                                | Fix                                                                                                                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `global.storageClass is required`      | Pass `-f values-eks.yaml` (or aks/gke), or `--set global.storageClass=gp3`                                                                                                                                                                       |
+| `secrets.stackguardSecret is required` | Set in `values.local.yaml` — exactly 32 chars (`openssl rand -hex 16`)                                                                                                                                                                           |
+| `SSL is not enabled on the server`     | Database URL must end with `?sslmode=disable`                                                                                                                                                                                                    |
+| Pod stuck `Pending`                    | Insufficient CPU on node — check `kubectl describe pod`, free resources or add nodes                                                                                                                                                             |
+| LoadBalancer `<pending>`               | Wait 2–5 min; check cloud LB quota                                                                                                                                                                                                               |
+| Config change not picked up            | `helm upgrade ...` then `kubectl rollout restart deployment/stackguard-application`                                                                                                                                                              |
+| Postgres crash — `lost+found`          | Delete StatefulSet + postgres PVC, then `helm upgrade` again                                                                                                                                                                                     |
+| Image pull errors                      | Images are public — check network/egress to `public.ecr.aws`                                                                                                                                                                                     |
+| Detects as `local` / missing cloud ID  | See **Cloud detection** above. On a live EKS node: `aws ec2 modify-instance-metadata-options --instance-id <id> --http-put-response-hop-limit 2 --http-tokens required`, then restart the app pod. Confirm NetworkPolicy allows metadata egress. |
 
 ---
 
 ## Key Helm values reference
 
-| Value | Description |
-|-------|-------------|
-| `global.storageClass` | **Required.** PVC storage class for your cloud |
-| `secrets.stackguardSecret` | **Required.** 32-character app secret |
-| `secrets.postgres.password` | **Required.** Postgres password |
-| `urls.application` | Public URL people open — set after the LoadBalancer is ready |
-| `images.application.tag` | Pin the application image version (default: `latest`) |
-| `application.service.type` | Default `LoadBalancer` |
-| `application.resources` | CPU/RAM for the single application pod |
-| `networkPolicy.enabled` | Permissive network policy (default `true`) |
+| Value                       | Description                                                  |
+| --------------------------- | ------------------------------------------------------------ |
+| `global.storageClass`       | **Required.** PVC storage class for your cloud               |
+| `secrets.stackguardSecret`  | **Required.** 32-character app secret                        |
+| `secrets.postgres.password` | **Required.** Postgres password                              |
+| `urls.application`          | Public URL people open — set after the LoadBalancer is ready |
+| `images.application.tag`    | Pin the application image version (default: `latest`)        |
+| `application.service.type`  | Default `LoadBalancer`                                       |
+| `application.resources`     | CPU/RAM for the single application pod                       |
+| `networkPolicy.enabled`     | Permissive network policy (default `true`)                   |
 
 Replicas are hardcoded to `1`. There is no `replicas` or `vpa` value.
 
@@ -344,11 +344,11 @@ Full defaults: [`stackguard/values.yaml`](stackguard/values.yaml)
 
 ## Images and chart sources
 
-| Artifact | URI |
-|----------|-----|
-| Helm chart | `oci://public.ecr.aws/stackguard-io/stackguard` |
-| Application | `public.ecr.aws/stackguard-io/stackguard-application` |
-| Postgres | `postgres:17` (Docker Hub) |
+| Artifact    | URI                                             |
+| ----------- | ----------------------------------------------- |
+| Helm chart  | `oci://public.ecr.aws/stackguard-io/stackguard` |
+| Application | `public.ecr.aws/stackguard-io/stackguard`       |
+| Postgres    | `postgres:17` (Docker Hub)                      |
 
 ---
 
@@ -368,10 +368,10 @@ Publish a new version: see [`stackguard/README.md`](stackguard/README.md).
 
 ## Helm vs raw manifests
 
-| Path | Use when |
-|------|----------|
+| Path                        | Use when                                                          |
+| --------------------------- | ----------------------------------------------------------------- |
 | **`k8/helm/`** (this guide) | Standard install — `helm install` / `helm upgrade` on any cluster |
-| **`k8/kubernetes/`** | Raw manifests + `envsubst` + `apply.sh` |
-| **`k8/infrastructure/`** | Terraform to create AKS / EKS / GKE clusters |
+| **`k8/kubernetes/`**        | Raw manifests + `envsubst` + `apply.sh`                           |
+| **`k8/infrastructure/`**    | Terraform to create AKS / EKS / GKE clusters                      |
 
 All three deploy the same StackGuard stack. **Use Helm for new deployments** unless you have a reason to use raw manifests.

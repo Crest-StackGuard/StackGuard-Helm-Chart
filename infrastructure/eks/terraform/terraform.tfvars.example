@@ -2,7 +2,7 @@ region             = "ap-south-1"
 cluster_name       = "eks-stackguard-prod"
 kubernetes_version = null
 node_count         = 1
-node_instance_type = "m6i.4xlarge"
+node_instance_type = "c6i.2xlarge"
 
 # Ubuntu EKS AMI only. Set explicitly when you want a pinned AMI (IDs change often).
 # Leave null to resolve via Canonical SSM (eks-pro / ubuntu_os_version / cluster version).

@@ -21,7 +21,7 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
 
 ## What this chart deploys
 
-- `stackguard-application` — API + UI on port 8080 (`public.ecr.aws/stackguard-io/stackguard-application`)
+- `stackguard-application` — API + UI on port 8080 (`public.ecr.aws/stackguard-io/stackguard`)
 - `stackguard-postgres` — Postgres 17
 
 No license key env vars. After start, open the site and enter name and email for approval.
