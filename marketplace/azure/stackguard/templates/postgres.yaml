@@ -1,0 +1,105 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-postgres
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-postgres
+spec:
+  type: {{ .Values.postgres.service.type }}
+  selector:
+    app: stackguard-postgres
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.service.port }}
+      targetPort: {{ .Values.postgres.service.port }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stackguard-postgres
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-postgres
+  annotations:
+    stackguard.io/horizontal-scaling: "disabled"
+spec:
+  serviceName: stackguard-postgres
+  replicas: {{ .Values.postgres.replicas }}
+  selector:
+    matchLabels:
+      app: stackguard-postgres
+  template:
+    metadata:
+      labels:
+        app: stackguard-postgres
+        {{- include "stackguard.selectorLabels" . | nindent 8 }}
+        {{- include "stackguard.billingLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      containers:
+        - name: postgres
+          image: {{ include "stackguard.image" (dict "ctx" $ "key" "postgres") }}
+          imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.postgres.service.port }}
+              name: postgres
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: POSTGRES_PASSWORD
+          resources:
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ required "global.storageClass is required" .Values.global.storageClass | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.persistence.size }}
+{{- end }}
