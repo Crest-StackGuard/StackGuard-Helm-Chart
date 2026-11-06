@@ -27,9 +27,37 @@ variable "node_count" {
 }
 
 variable "node_instance_type" {
-  description = "EC2 instance type for the node group (vertical sizing control)."
+  description = "EC2 instance type for the node group (vertical sizing only — never add nodes or app pods). Default 8 vCPU, 16 GiB RAM."
   type        = string
-  default     = "m6i.4xlarge"
+  default     = "c6i.2xlarge"
+}
+
+variable "node_ami_id" {
+  description = <<-EOT
+    Ubuntu EKS worker AMI ID (Canonical). Prefer setting this explicitly — AMI IDs change often.
+    Leave null to resolve via node_ami_ssm_parameter (or the default Canonical eks-pro SSM path).
+    Must be an Ubuntu EKS AMI — never Amazon Linux / Bottlerocket.
+  EOT
+  type        = string
+  default     = null
+}
+
+variable "ubuntu_os_version" {
+  description = "Ubuntu OS version used in the default Canonical SSM AMI path (e.g. 24.04)."
+  type        = string
+  default     = "24.04"
+}
+
+variable "node_ami_ssm_parameter" {
+  description = <<-EOT
+    Full SSM parameter name for the Ubuntu EKS AMI when node_ami_id is null.
+    Leave null to build:
+      /aws/service/canonical/ubuntu/eks-pro/<ubuntu_os_version>/<cluster_version>/stable/current/amd64/hvm/ebs-gp3/ami-id
+    Example:
+      /aws/service/canonical/ubuntu/eks-pro/24.04/1.37/stable/current/amd64/hvm/ebs-gp3/ami-id
+  EOT
+  type        = string
+  default     = null
 }
 
 variable "tags" {

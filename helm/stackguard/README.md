@@ -1,8 +1,8 @@
-# Stackguard Helm Chart
+# StackGuard Helm Chart
 
-Chart source for Stackguard. **Install guide:** [`../README.md`](../README.md)
+Chart source for StackGuard. **Install guide:** [`../README.md`](../README.md)
 
-**Published:** `oci://public.ecr.aws/stackguard-io/stackguard:0.1.0`  
+**Published:** `oci://public.ecr.aws/stackguard-io/stackguard:0.2.2`  
 **Artifact Hub:** [artifacthub.io/packages/helm/stackguard/stackguard](https://artifacthub.io/packages/helm/stackguard/stackguard)
 
 ## Quick install
@@ -12,10 +12,19 @@ cp values.local.yaml.example values.local.yaml
 # edit secrets in values.local.yaml
 
 helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.1.0 \
+  --version 0.2.2 \
   -f values.local.yaml \
   -f values-eks.yaml
 ```
+
+**Hard limits:** exactly **1** `stackguard-application` pod (no replicas knob, no HPA/VPA). Ubuntu nodes only (`stackguard.io/os=ubuntu`). Scale by raising CPU/RAM/disk + node VM size.
+
+## What this chart deploys
+
+- `stackguard-application` — API + UI on port 8080 (`public.ecr.aws/stackguard-io/stackguard`)
+- `stackguard-postgres` — Postgres 17
+
+No license key env vars. After start, open the site and enter name and email for approval.
 
 ## Publish a new chart version
 

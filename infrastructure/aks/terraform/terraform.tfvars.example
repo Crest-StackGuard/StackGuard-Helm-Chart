@@ -4,7 +4,8 @@ aks_cluster_name    = "aks-stackguard-prod"
 dns_prefix          = "stackguard-prod"
 kubernetes_version  = null
 node_count          = 1
-node_vm_size        = "Standard_D16s_v3"
+# Marketplace Offer B: user-selected VM size (vertical only). Ubuntu node pool; autoscale off.
+node_vm_size        = "Standard_F8s_v2"
 
 tags = {
   environment = "prod"

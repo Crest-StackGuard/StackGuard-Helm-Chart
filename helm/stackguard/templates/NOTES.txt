@@ -1,26 +1,37 @@
-1. Stackguard has been deployed to namespace {{ include "stackguard.namespace" . }}.
+1. StackGuard has been deployed to namespace {{ include "stackguard.namespace" . }}.
 
-2. Wait for all pods to become Running:
+2. Wait for pods:
 
    kubectl get pods -n {{ include "stackguard.namespace" . }} -w
 
-3. Get public LoadBalancer IPs:
+3. Get the public address:
 
-   kubectl get svc -n {{ include "stackguard.namespace" . }}
+   kubectl get svc -n {{ include "stackguard.namespace" . }} stackguard-application
 
-4. Update URLs, then upgrade the release:
+4. Set the public URL, then upgrade:
 
    helm upgrade {{ .Release.Name }} oci://public.ecr.aws/stackguard-io/stackguard \
      --version {{ .Chart.Version }} \
      -f values.local.yaml \
-     --set urls.dashboard=http://<dashboard-ip>:4000 \
-     --set urls.api=http://<server-ip>:8080
+     --set urls.application=http://<application-ip>:8080
 
-5. Restart app deployments to pick up URL changes:
+5. Restart so the new URL is picked up:
 
-   kubectl rollout restart deployment -n {{ include "stackguard.namespace" . }} \
-     stackguard-dashboard stackguard-server
+   kubectl rollout restart deployment/stackguard-application -n {{ include "stackguard.namespace" . }}
 
-6. Open the dashboard:
+6. Confirm cloud detection (account / subscription / project ID from instance metadata):
 
-   http://<dashboard-ip>:4000
+   kubectl logs -n {{ include "stackguard.namespace" . }} -l app=stackguard-application --tail=50 | grep -E 'AWS detected|Azure detected|GCP detected|provider='
+
+   Expect one of:
+     AWS detected - ID: <accountId>
+     Azure detected - ID: <subscriptionId>
+     GCP detected - ID: <projectId>
+
+   If you see provider=local on EKS, set IMDS hop limit to 2 on the node (see Helm README).
+   Do not block egress to 169.254.169.254/32 (or metadata.google.internal on GKE).
+
+7. Open StackGuard in the browser. Enter your name and email to ask for approval.
+   No license key is used. After approval, sign in with the password from the email.
+
+   http://<application-ip>:8080

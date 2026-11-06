@@ -1,2 +1,7 @@
 global:
   storageClass: gp3
+
+# StackGuard application runs only on Ubuntu-labeled nodes (set by EKS Terraform).
+application:
+  nodeSelector:
+    stackguard.io/os: ubuntu

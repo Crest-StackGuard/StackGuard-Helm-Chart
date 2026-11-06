@@ -1,5 +1,7 @@
 # Default values for the Stackguard Helm chart.
 # Override secrets and storageClass at install time — do not commit real secrets.
+# Cloud tenant (AWS account / Azure subscription / GCP project) is detected from
+# instance metadata — do not set CSP or cloud id here.
 
 namespace: stackguard
 createNamespace: true
@@ -11,15 +13,11 @@ global:
   # Required on most clusters. Examples: managed-csi (AKS), gp3 (EKS), standard-rwo (GKE)
   storageClass: ""
   imagePullSecrets: []
-  # AKS region (e.g. southeastasia). With <component>.service.azureDnsLabel set,
-  # empty urls below resolve to http://<label>.<region>.cloudapp.azure.com:<port>.
-  azureRegion: ""
 
 urls:
-  # Public URLs. Empty falls back to the Azure DNS name (see global.azureRegion),
-  # else http://localhost:<port>. Set after LoadBalancer IPs are assigned, then upgrade.
-  dashboard: ""
-  api: ""
+  # Public address people open in the browser (API + UI share this URL on port 8080).
+  # Update after the LoadBalancer IP is assigned, then upgrade the release.
+  application: http://localhost:8080
 
 secrets:
   # Must be EXACTLY 32 characters. Generate: openssl rand -hex 16
@@ -32,48 +30,34 @@ secrets:
   databaseUrl: ""
 
 images:
-  dashboard:
+  application:
     registry: public.ecr.aws
-    repository: stackguard-io/dashboard
-    tag: "v1.0.0"
-    pullPolicy: IfNotPresent
-  server:
-    registry: public.ecr.aws
-    repository: stackguard-io/server
-    tag: "v1.0.1"
-    pullPolicy: IfNotPresent
+    repository: stackguard-io/stackguard
+    tag: latest
+    pullPolicy: Always
   postgres:
     registry: ""
     repository: postgres
-    tag: "16.4"
+    tag: "17"
     pullPolicy: IfNotPresent
 
-dashboard:
+# Application: ALWAYS exactly 1 pod / 1 container. No replicas key. No HPA. No VPA.
+# Horizontal scale is forbidden. Raise application.resources + node VM size only.
+# Default pod sizing targets one node: 8 vCPU / 16 GiB (app 4+8Gi, postgres 2+4Gi).
+# Cloud overlays (values-eks/aks/gke.yaml) pin nodeSelector stackguard.io/os=ubuntu.
+#
+# Azure Marketplace UI should only override:
+#   application.resources.(requests|limits).(cpu|memory)  → App CPU / RAM
+#   application.persistence.size                         → App disk
+# (Offer B node VM size = AKS Terraform node_vm_size — not Helm.)
+# See values.marketplace.yaml.example
+application:
   enabled: true
-  replicas: 1
-  service:
-    type: LoadBalancer
-    port: 4000
-    # AKS only: publishes <label>.<region>.cloudapp.azure.com for this LoadBalancer.
-    azureDnsLabel: ""
-  resources:
-    requests:
-      cpu: "2"
-      memory: 4Gi
-    limits:
-      cpu: "2"
-      memory: 4Gi
-  persistence:
-    size: 10Gi
-
-server:
-  enabled: true
-  replicas: 1
   service:
     type: LoadBalancer
     port: 8080
-    # AKS only: publishes <label>.<region>.cloudapp.azure.com for this LoadBalancer.
-    azureDnsLabel: ""
+  # Optional; cloud overlays set stackguard.io/os: ubuntu
+  nodeSelector: {}
   resources:
     requests:
       cpu: "4"
@@ -81,15 +65,19 @@ server:
     limits:
       cpu: "4"
       memory: 8Gi
+  # Single PVC covering all server data dirs (Docker: scan-data, storage-scans,
+  # report-pdfs, identity-models → /scans, /app/storage_scans, /app/report_pdfs,
+  # /app/identity-resolver/models).
   persistence:
     size: 10Gi
 
+# Postgres — chart defaults only; leave as-is unless you intentionally change DB sizing.
 postgres:
   enabled: true
-  replicas: 1
   service:
     type: ClusterIP
     port: 5432
+  # Sized to fit app + postgres on one 8 vCPU / 16 GiB node (see Terraform defaults).
   resources:
     requests:
       cpu: "2"
@@ -100,9 +88,7 @@ postgres:
   persistence:
     size: 10Gi
 
+# Permissive by default so pods can reach cloud metadata (169.254.169.254 /
+# metadata.google.internal). If you tighten egress, keep those destinations.
 networkPolicy:
   enabled: true
-
-vpa:
-  enabled: false
-  updateMode: Off
