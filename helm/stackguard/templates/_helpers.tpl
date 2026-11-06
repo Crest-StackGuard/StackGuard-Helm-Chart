@@ -41,7 +41,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- $image := .image -}}
 {{- $registry := $image.registry | default "" -}}
 {{- $repository := required "image repository is required" $image.repository -}}
-{{- $tag := $image.tag | default "latest" -}}
+{{- $tag := $image.tag | default "v1.0.0" -}}
 {{- if $registry -}}
 {{- printf "%s/%s:%s" $registry $repository $tag -}}
 {{- else -}}

@@ -52,7 +52,7 @@ Azure Marketplace rewrites global.azure.images.<key>, so it wins when present.
 {{- if $azure.digest -}}
 {{- printf "%s@%s" $ref $azure.digest -}}
 {{- else -}}
-{{- printf "%s:%s" $ref ($azure.tag | default "latest") -}}
+{{- printf "%s:%s" $ref ($azure.tag | default "v1.0.0") -}}
 {{- end -}}
 {{- else -}}
 {{- $image := index $ctx.Values.images $key -}}
@@ -62,7 +62,7 @@ Azure Marketplace rewrites global.azure.images.<key>, so it wins when present.
 {{- if $image.digest -}}
 {{- printf "%s@%s" $ref $image.digest -}}
 {{- else -}}
-{{- printf "%s:%s" $ref ($image.tag | default "latest") -}}
+{{- printf "%s:%s" $ref ($image.tag | default "v1.0.0") -}}
 {{- end -}}
 {{- end -}}
 {{- end }}

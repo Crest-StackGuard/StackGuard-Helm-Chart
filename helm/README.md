@@ -331,7 +331,7 @@ Infrastructure requirements (covered by [`../infrastructure/`](../infrastructure
 | `secrets.stackguardSecret`  | **Required.** 32-character app secret                        |
 | `secrets.postgres.password` | **Required.** Postgres password                              |
 | `urls.application`          | Public URL people open — set after the LoadBalancer is ready |
-| `images.application.tag`    | Pin the application image version (default: `latest`)        |
+| `images.application.tag`    | Pin the application image version (default: `v1.0.0`)        |
 | `application.service.type`  | Default `LoadBalancer`                                       |
 | `application.resources`     | CPU/RAM for the single application pod                       |
 | `networkPolicy.enabled`     | Permissive network policy (default `true`)                   |

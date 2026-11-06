@@ -33,7 +33,7 @@ images:
   application:
     registry: public.ecr.aws
     repository: stackguard-io/stackguard
-    tag: latest
+    tag: v1.0.0
     pullPolicy: Always
   postgres:
     registry: ""

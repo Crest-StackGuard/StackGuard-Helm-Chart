@@ -164,7 +164,7 @@ resource "aws_eks_node_group" "this" {
 
   launch_template {
     id      = aws_launch_template.node.id
-    version = aws_launch_template.node.latest_version
+    version = aws_launch_template.node.v1.0.0_version
   }
 
   # Autoscaling OFF: min = max = desired = 1. Scale vertically (instance type) only.
