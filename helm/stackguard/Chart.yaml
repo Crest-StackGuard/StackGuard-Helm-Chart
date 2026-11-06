@@ -1,14 +1,14 @@
 apiVersion: v2
 name: stackguard
-description: Stackguard security platform — dashboard, API server, and Postgres
+description: StackGuard — one application image (API + UI) and Postgres
 type: application
-version: 0.1.2
-appVersion: "1.0.0"
+version: 0.2.3
+appVersion: "2.0.0"
 keywords:
   - stackguard
   - security
   - kubernetes
-home: https://stackguard.io
+home: https://www.stackguard.io
 maintainers:
-  - name: Stackguard
-    url: https://stackguard.io
+  - name: StackGuard
+    url: https://www.stackguard.io

@@ -37,9 +37,13 @@ variable "node_count" {
 }
 
 variable "node_vm_size" {
-  description = "AKS node VM size (vertical sizing control). Default D16s_v3 (16 vCPU) fits full Stackguard workload; uses Dsv3 family (not Dsv5)."
+  description = <<-EOT
+    AKS node VM size (vertical sizing only). Marketplace Offer B UI maps here — not a Helm value.
+    Default Standard_F8s_v2 (8 vCPU, 16 GiB RAM) fits StackGuard app + postgres defaults on one node.
+    Ubuntu only (os_sku=Ubuntu2204). Autoscaling stays off (vmEnableAutoScale=false).
+  EOT
   type        = string
-  default     = "Standard_D16s_v3"
+  default     = "Standard_F8s_v2"
 }
 
 variable "tags" {

@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackguard-application
+  namespace: ${STACKGUARD_NAMESPACE}
+  annotations:
+    stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
+spec:
+  # Always exactly one pod. Scale by increasing node size / resources, not replicas.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: stackguard-application
+  template:
+    metadata:
+      labels:
+        app: stackguard-application
+    spec:
+      restartPolicy: Always
+      # StackGuard application must run on Ubuntu nodes only (label set by cloud Terraform).
+      nodeSelector:
+        stackguard.io/os: ubuntu
+      containers:
+        - name: application
+          image: ${APPLICATION_IMAGE}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: STACKGUARD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_SECRET
+            - name: STACKGUARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_DATABASE_URL
+            - name: STACKGUARD_APPLICATION_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_APPLICATION_URL
+          resources:
+            requests:
+              cpu: "${APPLICATION_REQ_CPU}"
+              memory: "${APPLICATION_REQ_MEM}"
+            limits:
+              cpu: "${APPLICATION_LIMIT_CPU}"
+              memory: "${APPLICATION_LIMIT_MEM}"
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          # Same four data dirs as Docker CLI (server WORKDIR /app + /scans).
+          volumeMounts:
+            - name: application-data
+              mountPath: /scans
+              subPath: scans
+            - name: application-data
+              mountPath: /app/storage_scans
+              subPath: storage-scans
+            - name: application-data
+              mountPath: /app/report_pdfs
+              subPath: report-pdfs
+            - name: application-data
+              mountPath: /app/identity-resolver/models
+              subPath: identity-models
+      volumes:
+        - name: application-data
+          persistentVolumeClaim:
+            claimName: application-data-pvc

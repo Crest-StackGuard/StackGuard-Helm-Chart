@@ -6,9 +6,4 @@ metadata:
   labels:
     {{- include "stackguard.labels" . | nindent 4 }}
 data:
-  STACKGUARD_DASHBOARD_URL: {{ include "stackguard.publicUrl" (dict "ctx" . "url" .Values.urls.dashboard "service" .Values.dashboard.service) | quote }}
-  {{- $apiUrl := include "stackguard.publicUrl" (dict "ctx" . "url" .Values.urls.api "service" .Values.server.service) }}
-  STACKGUARD_API_URL: {{ $apiUrl | quote }}
-  # The AI service is gone, but the server and dashboard images still refuse to
-  # start without this variable; default it to the API URL.
-  STACKGUARD_AI_URL: {{ .Values.urls.ai | default $apiUrl | quote }}
+  STACKGUARD_APPLICATION_URL: {{ .Values.urls.application | quote }}

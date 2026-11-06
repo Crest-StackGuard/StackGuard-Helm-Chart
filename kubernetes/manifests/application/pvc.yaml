@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: dashboard-data-pvc
+  name: application-data-pvc
   namespace: ${STACKGUARD_NAMESPACE}
 spec:
   accessModes:
@@ -9,4 +9,4 @@ spec:
   storageClassName: ${STACKGUARD_STORAGE_CLASS}
   resources:
     requests:
-      storage: ${DASHBOARD_DATA_SIZE}
+      storage: ${APPLICATION_DATA_SIZE}

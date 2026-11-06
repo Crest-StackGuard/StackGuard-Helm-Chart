@@ -20,7 +20,7 @@
 {{- end }}
 
 {{- define "stackguard.namespace" -}}
-{{- default .Release.Namespace .Values.namespace }}
+{{- .Values.namespace }}
 {{- end }}
 
 {{- define "stackguard.labels" -}}
@@ -37,44 +37,16 @@ app.kubernetes.io/name: {{ include "stackguard.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Resolve a container image reference for component key .key.
-Azure Marketplace rewrites global.azure.images.<key>, so it wins when present.
-*/}}
 {{- define "stackguard.image" -}}
-{{- $ctx := .ctx -}}
-{{- $key := .key -}}
-{{- $azure := dig "azure" "images" $key nil $ctx.Values.global -}}
-{{- if and $azure (or $azure.image $azure.repository) -}}
-{{- $registry := $azure.registry | default "" -}}
-{{- $repository := $azure.image | default $azure.repository -}}
-{{- $ref := ternary (printf "%s/%s" $registry $repository) $repository (ne $registry "") -}}
-{{- if $azure.digest -}}
-{{- printf "%s@%s" $ref $azure.digest -}}
-{{- else -}}
-{{- printf "%s:%s" $ref ($azure.tag | default "latest") -}}
-{{- end -}}
-{{- else -}}
-{{- $image := index $ctx.Values.images $key -}}
+{{- $image := .image -}}
 {{- $registry := $image.registry | default "" -}}
 {{- $repository := required "image repository is required" $image.repository -}}
-{{- $ref := ternary (printf "%s/%s" $registry $repository) $repository (ne $registry "") -}}
-{{- if $image.digest -}}
-{{- printf "%s@%s" $ref $image.digest -}}
+{{- $tag := $image.tag | default "latest" -}}
+{{- if $registry -}}
+{{- printf "%s/%s:%s" $registry $repository $tag -}}
 {{- else -}}
-{{- printf "%s:%s" $ref ($image.tag | default "latest") -}}
+{{- printf "%s:%s" $repository $tag -}}
 {{- end -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-Azure Marketplace usage-metering identifier. Replaced by the cluster extension
-with the extension instance name at deployment time.
-*/}}
-{{- define "stackguard.billingLabels" -}}
-{{- if .Values.global.azure }}
-azure-extensions-usage-release-identifier: {{ .Release.Name | quote }}
-{{- end }}
 {{- end }}
 
 {{- define "stackguard.databaseUrl" -}}
@@ -82,19 +54,5 @@ azure-extensions-usage-release-identifier: {{ .Release.Name | quote }}
 {{- .Values.secrets.databaseUrl -}}
 {{- else -}}
 {{- printf "postgresql://%s:%s@stackguard-postgres:5432/%s?sslmode=disable" .Values.secrets.postgres.user .Values.secrets.postgres.password .Values.secrets.postgres.database -}}
-{{- end -}}
-{{- end }}
-
-{{/*
-Public URL for a component: explicit url, else its Azure DNS name, else localhost.
-*/}}
-{{- define "stackguard.publicUrl" -}}
-{{- $region := .ctx.Values.global.azureRegion -}}
-{{- if .url -}}
-{{- .url -}}
-{{- else if and .service.azureDnsLabel $region -}}
-{{- printf "http://%s.%s.cloudapp.azure.com:%v" .service.azureDnsLabel $region .service.port -}}
-{{- else -}}
-{{- printf "http://localhost:%v" .service.port -}}
 {{- end -}}
 {{- end }}

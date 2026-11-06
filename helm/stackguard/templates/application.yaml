@@ -1,0 +1,130 @@
+{{- if .Values.application.enabled }}
+{{- /* Exactly one StackGuard application container/pod — never scale out. */ -}}
+{{- if hasKey .Values.application "replicas" }}
+{{- fail "application.replicas is not supported. Exactly 1 stackguard-application pod is allowed. Scale vertically via application.resources (and the node VM size)." }}
+{{- end }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: application-data-pvc
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-application
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ required "global.storageClass is required" .Values.global.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.application.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackguard-application
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-application
+  annotations:
+    stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
+spec:
+  # HARD LIMIT: exactly one golang/stackguard-application container. Never 2+.
+  # Scale by raising application.resources CPU/RAM and the node machine size only.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: stackguard-application
+  template:
+    metadata:
+      labels:
+        app: stackguard-application
+        {{- include "stackguard.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      {{- with .Values.application.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: application
+          image: {{ include "stackguard.image" (dict "image" .Values.images.application) }}
+          imagePullPolicy: {{ .Values.images.application.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.application.service.port }}
+              name: http
+          env:
+            - name: STACKGUARD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_SECRET
+            - name: STACKGUARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_DATABASE_URL
+            - name: STACKGUARD_APPLICATION_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_APPLICATION_URL
+          resources:
+            {{- toYaml .Values.application.resources | nindent 12 }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.application.service.port }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.application.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
+          # Same four data dirs as Docker CLI (server Dockerfile WORKDIR /app + /scans).
+          # One PVC; subPaths keep them separate across pod recreate.
+          volumeMounts:
+            - name: application-data
+              mountPath: /scans
+              subPath: scans
+            - name: application-data
+              mountPath: /app/storage_scans
+              subPath: storage-scans
+            - name: application-data
+              mountPath: /app/report_pdfs
+              subPath: report-pdfs
+            - name: application-data
+              mountPath: /app/identity-resolver/models
+              subPath: identity-models
+      volumes:
+        - name: application-data
+          persistentVolumeClaim:
+            claimName: application-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-application
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-application
+spec:
+  type: {{ .Values.application.service.type }}
+  selector:
+    app: stackguard-application
+  ports:
+    - name: http
+      port: {{ .Values.application.service.port }}
+      targetPort: {{ .Values.application.service.port }}
+{{- end }}
