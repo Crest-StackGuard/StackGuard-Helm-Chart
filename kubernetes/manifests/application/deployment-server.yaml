@@ -1,31 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: stackguard-application
+  name: stackguard-server
   namespace: ${STACKGUARD_NAMESPACE}
   annotations:
     stackguard.io/scaling: "disabled"
     stackguard.io/replicas: "1"
 spec:
-  # Always exactly one pod. Scale by increasing node size / resources, not replicas.
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      app: stackguard-application
+      app: stackguard-server
   template:
     metadata:
       labels:
-        app: stackguard-application
+        app: stackguard-server
     spec:
       restartPolicy: Always
-      # StackGuard application must run on Ubuntu nodes only (label set by cloud Terraform).
-      nodeSelector:
-        stackguard.io/os: ubuntu
       containers:
-        - name: application
-          image: ${APPLICATION_IMAGE}
+        - name: server
+          image: ${SERVER_IMAGE}
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -41,45 +37,37 @@ spec:
                 secretKeyRef:
                   name: stackguard-secrets
                   key: STACKGUARD_DATABASE_URL
-            - name: STACKGUARD_APPLICATION_URL
+            - name: STACKGUARD_API_URL
               valueFrom:
                 configMapKeyRef:
                   name: stackguard-config
-                  key: STACKGUARD_APPLICATION_URL
+                  key: STACKGUARD_API_URL
+            - name: STACKGUARD_DASHBOARD_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_DASHBOARD_URL
           resources:
             requests:
-              cpu: "${APPLICATION_REQ_CPU}"
-              memory: "${APPLICATION_REQ_MEM}"
+              cpu: "${SERVER_REQ_CPU}"
+              memory: "${SERVER_REQ_MEM}"
             limits:
-              cpu: "${APPLICATION_LIMIT_CPU}"
-              memory: "${APPLICATION_LIMIT_MEM}"
-          livenessProbe:
-            tcpSocket:
-              port: 8080
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            failureThreshold: 3
-          readinessProbe:
-            tcpSocket:
-              port: 8080
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            failureThreshold: 3
-          # Same four data dirs as Docker CLI (server WORKDIR /app + /scans).
+              cpu: "${SERVER_LIMIT_CPU}"
+              memory: "${SERVER_LIMIT_MEM}"
           volumeMounts:
-            - name: application-data
+            - name: server-data
               mountPath: /scans
               subPath: scans
-            - name: application-data
+            - name: server-data
               mountPath: /app/storage_scans
               subPath: storage-scans
-            - name: application-data
+            - name: server-data
               mountPath: /app/report_pdfs
               subPath: report-pdfs
-            - name: application-data
+            - name: server-data
               mountPath: /app/identity-resolver/models
               subPath: identity-models
       volumes:
-        - name: application-data
+        - name: server-data
           persistentVolumeClaim:
-            claimName: application-data-pvc
+            claimName: server-data-pvc

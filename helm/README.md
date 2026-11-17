@@ -19,7 +19,7 @@ Deploy StackGuard with a single Helm release on any Kubernetes cluster (AKS, EKS
 - Postgres 17
 - No license key. Open the site → enter name and email → admin approves → sign in with the emailed password
 - Cloud vs local is detected by the application from instance metadata (AWS account ID, Azure subscription ID, GCP project ID). Do not pass CSP or cloud id through Helm
-- Always **exactly 1** `stackguard-application` pod (golang server). Setting `application.replicas` fails the chart. Never run 2+ app containers.
+- Always **exactly 1** `stackguard-server` pod (golang server). Setting `server.replicas` fails the chart. Never run 2+ app containers.
 - No HPA, no VPA, no cluster/node autoscaling (`vmEnableAutoScale=false`). Scale **vertically** only (pod CPU/RAM + node VM size)
 - Ubuntu only for the StackGuard node (`values-*-*.yaml` sets `application.nodeSelector.stackguard.io/os=ubuntu`)
 - 10 GiB persistent disk per workload (override `application.persistence.size`)
@@ -145,7 +145,7 @@ kubectl get pods -n stackguard -w
 Expected:
 
 ```text
-stackguard-application-...   1/1   Running
+stackguard-server-...   1/1   Running
 stackguard-postgres-0        1/1   Running
 ```
 
@@ -156,7 +156,7 @@ Press `Ctrl+C` to stop watching.
 ## Step 5 — Get the LoadBalancer IP and set the URL
 
 ```bash
-kubectl get svc -n stackguard stackguard-application
+kubectl get svc -n stackguard stackguard-server
 ```
 
 Copy the **EXTERNAL-IP** (or hostname). Update `values.local.yaml`:
@@ -174,13 +174,13 @@ helm upgrade stackguard oci://public.ecr.aws/stackguard-io/stackguard \
   -f values.local.yaml \
   -f values-eks.yaml
 
-kubectl rollout restart deployment -n stackguard stackguard-application
+kubectl rollout restart deployment -n stackguard stackguard-server
 ```
 
 Confirm the app detected the cloud tenant (no env vars needed):
 
 ```bash
-kubectl logs -n stackguard -l app=stackguard-application --tail=50 | grep -E 'AWS detected|Azure detected|GCP detected|provider='
+kubectl logs -n stackguard -l app=stackguard-server --tail=50 | grep -E 'AWS detected|Azure detected|GCP detected|provider='
 ```
 
 Open in the browser: **http://\<application-ip\>:8080**
@@ -201,15 +201,15 @@ helm status stackguard -n stackguard
 ### Logs
 
 ```bash
-kubectl logs -n stackguard -l app=stackguard-application --tail=100
+kubectl logs -n stackguard -l app=stackguard-server --tail=100
 kubectl logs -n stackguard stackguard-postgres-0 --tail=100
 ```
 
 ### After a crash
 
 ```bash
-kubectl logs -n stackguard -l app=stackguard-application --previous
-kubectl describe pod -n stackguard -l app=stackguard-application
+kubectl logs -n stackguard -l app=stackguard-server --previous
+kubectl describe pod -n stackguard -l app=stackguard-server
 ```
 
 ---
@@ -235,7 +235,7 @@ helm upgrade stackguard oci://public.ecr.aws/stackguard-io/stackguard \
   -f values.local.yaml \
   -f values-eks.yaml
 
-kubectl rollout restart deployment -n stackguard stackguard-application
+kubectl rollout restart deployment -n stackguard stackguard-server
 ```
 
 Then increase the node VM in Terraform under [`../infrastructure/`](../infrastructure/) and run `terraform apply`.
@@ -316,7 +316,7 @@ Infrastructure requirements (covered by [`../infrastructure/`](../infrastructure
 | `SSL is not enabled on the server`     | Database URL must end with `?sslmode=disable`                                                                                                                                                                                                    |
 | Pod stuck `Pending`                    | Insufficient CPU on node — check `kubectl describe pod`, free resources or add nodes                                                                                                                                                             |
 | LoadBalancer `<pending>`               | Wait 2–5 min; check cloud LB quota                                                                                                                                                                                                               |
-| Config change not picked up            | `helm upgrade ...` then `kubectl rollout restart deployment/stackguard-application`                                                                                                                                                              |
+| Config change not picked up            | `helm upgrade ...` then `kubectl rollout restart deployment/stackguard-server`                                                                                                                                                                   |
 | Postgres crash — `lost+found`          | Delete StatefulSet + postgres PVC, then `helm upgrade` again                                                                                                                                                                                     |
 | Image pull errors                      | Images are public — check network/egress to `public.ecr.aws`                                                                                                                                                                                     |
 | Detects as `local` / missing cloud ID  | See **Cloud detection** above. On a live EKS node: `aws ec2 modify-instance-metadata-options --instance-id <id> --http-put-response-hop-limit 2 --http-tokens required`, then restart the app pod. Confirm NetworkPolicy allows metadata egress. |
@@ -344,11 +344,12 @@ Full defaults: [`stackguard/values.yaml`](stackguard/values.yaml)
 
 ## Images and chart sources
 
-| Artifact    | URI                                             |
-| ----------- | ----------------------------------------------- |
-| Helm chart  | `oci://public.ecr.aws/stackguard-io/stackguard` |
-| Application | `public.ecr.aws/stackguard-io/stackguard`       |
-| Postgres    | `postgres:17` (Docker Hub)                      |
+| Artifact   | URI                                             |
+| ---------- | ----------------------------------------------- |
+| Helm chart | `oci://public.ecr.aws/stackguard-io/stackguard` |
+| Server     | `public.ecr.aws/stackguard-io/server`           |
+| Dashboard  | `public.ecr.aws/stackguard-io/dashboard`        |
+| Postgres   | `postgres:17` (Docker Hub)                      |
 
 ---
 

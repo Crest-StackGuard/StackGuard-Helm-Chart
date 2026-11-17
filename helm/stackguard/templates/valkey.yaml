@@ -1,0 +1,76 @@
+{{- if .Values.valkey.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-valkey
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-valkey
+spec:
+  type: ClusterIP
+  selector:
+    app: stackguard-valkey
+  ports:
+    - name: redis
+      port: {{ .Values.valkey.service.port }}
+      targetPort: {{ .Values.valkey.service.port }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stackguard-valkey
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-valkey
+spec:
+  serviceName: stackguard-valkey
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stackguard-valkey
+  template:
+    metadata:
+      labels:
+        app: stackguard-valkey
+        {{- include "stackguard.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: valkey
+          image: {{ .Values.valkey.image | quote }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - valkey-server
+            - --appendonly
+            - "yes"
+            - --user
+            - default
+            - off
+            - --user
+            - {{ .Values.valkey.auth.user | quote }}
+            - on
+            - ">{{ .Values.valkey.auth.password }}"
+            - '~*'
+            - '&*'
+            - '+@all'
+          ports:
+            - containerPort: {{ .Values.valkey.service.port }}
+              name: redis
+          resources:
+            {{- toYaml .Values.valkey.resources | nindent 12 }}
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: valkey-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.valkey.persistence.size }}
+        {{- if .Values.global.storageClass }}
+        storageClassName: {{ .Values.global.storageClass | quote }}
+        {{- end }}
+{{- end }}

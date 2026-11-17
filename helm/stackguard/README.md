@@ -17,11 +17,12 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
   -f values-eks.yaml
 ```
 
-**Hard limits:** exactly **1** `stackguard-application` pod (no replicas knob, no HPA/VPA). Ubuntu nodes only (`stackguard.io/os=ubuntu`). Scale by raising CPU/RAM/disk + node VM size.
+**Hard limits:** **1** server pod + **1** dashboard pod (no HPA/VPA). Scale vertically only. Images are multi-arch (**amd64** + **arm64**).
 
 ## What this chart deploys
 
-- `stackguard-application` — API + UI on port 8080 (`public.ecr.aws/stackguard-io/stackguard`)
+- `stackguard-server` — API on port 8080 (`public.ecr.aws/stackguard-io/server`)
+- `stackguard-dashboard` — UI on port 4000 (`public.ecr.aws/stackguard-io/dashboard`)
 - `stackguard-postgres` — Postgres 17
 
 No license key env vars. After start, open the site and enter name and email for approval.

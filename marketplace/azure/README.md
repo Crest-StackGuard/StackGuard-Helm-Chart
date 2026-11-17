@@ -4,19 +4,19 @@ We maintain **Helm** + **AKS Terraform** knobs. Partner Center / CreateUIDefinit
 
 ## Both offers
 
-| Offer | What runs | UI asks |
-|-------|-----------|---------|
-| **A** Helm on existing AKS | `helm install` + `values-aks.yaml` | App **CPU**, **RAM**, **disk** |
-| **B** Create AKS + Helm | AKS Terraform (Ubuntu, autoscale off) then same Helm | Same + **node VM size** |
+| Offer                      | What runs                                            | UI asks                        |
+| -------------------------- | ---------------------------------------------------- | ------------------------------ |
+| **A** Helm on existing AKS | `helm install` + `values-aks.yaml`                   | App **CPU**, **RAM**, **disk** |
+| **B** Create AKS + Helm    | AKS Terraform (Ubuntu, autoscale off) then same Helm | Same + **node VM size**        |
 
 ## Map UI → code
 
-| UI field | Offer | Where |
-|----------|-------|--------|
-| App CPU | A, B | Helm `application.resources.requests.cpu` + `limits.cpu` |
-| App RAM | A, B | Helm `application.resources.requests.memory` + `limits.memory` |
-| App disk | A, B | Helm `application.persistence.size` |
-| Node VM size | **B only** | AKS Terraform `node_vm_size` |
+| UI field     | Offer      | Where                                                          |
+| ------------ | ---------- | -------------------------------------------------------------- |
+| App CPU      | A, B       | Helm `application.resources.requests.cpu` + `limits.cpu`       |
+| App RAM      | A, B       | Helm `application.resources.requests.memory` + `limits.memory` |
+| App disk     | A, B       | Helm `application.persistence.size`                            |
+| Node VM size | **B only** | AKS Terraform `node_vm_size`                                   |
 
 Example Helm overrides: [`../../helm/stackguard/values.marketplace.yaml.example`](../../helm/stackguard/values.marketplace.yaml.example)
 
@@ -30,16 +30,16 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
 
 ## Fixed (not in UI)
 
-| Rule | Enforcement |
-|------|-------------|
-| 1 app pod only | Helm `replicas: 1` (setting `application.replicas` fails) |
-| Autoscale off | AKS `enable_auto_scaling=false` (`vmEnableAutoScale=false`) |
-| Ubuntu only | AKS `os_sku=Ubuntu2204` + Helm `nodeSelector: stackguard.io/os=ubuntu` |
+| Rule                | Enforcement                                                                     |
+| ------------------- | ------------------------------------------------------------------------------- |
+| 1 app pod only      | Helm `replicas: 1` (setting `application.replicas` fails)                       |
+| Autoscale off       | AKS `enable_auto_scaling=false` (`vmEnableAutoScale=false`)                     |
+| Ubuntu only         | AKS `os_sku=Ubuntu2204` + Helm `nodeSelector: stackguard.io/os=ubuntu`          |
 | **Subscription ID** | **IMDS only** (`169.254.169.254` + `Metadata: true`) — never Helm / Marketplace |
 
 Confirm after install:
 
 ```bash
-kubectl logs -n stackguard -l app=stackguard-application --tail=50 | grep -E 'Azure detected|provider='
+kubectl logs -n stackguard -l app=stackguard-server --tail=50 | grep -E 'Azure detected|provider='
 # expect: Azure detected - ID: <subscriptionId>
 ```
