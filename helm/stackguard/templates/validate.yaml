@@ -1,0 +1,14 @@
+{{/*
+  StackGuard is monolithic: exactly one pod per workload.
+  No HPA, no VPA, no horizontal scaling. Raise CPU/RAM / node size instead.
+*/}}
+{{- range $name, $comp := dict "server" .Values.server "dashboard" .Values.dashboard "postgres" .Values.postgres "valkey" .Values.valkey }}
+{{- if and $comp (hasKey $comp "replicas") }}
+{{- if ne (int $comp.replicas) 1 }}
+{{- fail (printf "StackGuard is monolithic: %s.replicas must be 1 (got %v). Do not scale out pods — raise CPU/RAM or node size instead." $name $comp.replicas) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if and .Values.vpa .Values.vpa.enabled }}
+{{- fail "StackGuard does not support autoscaling (VPA/HPA). Keep vpa.enabled=false. Scale vertically only." }}
+{{- end }}

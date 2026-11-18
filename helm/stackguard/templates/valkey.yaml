@@ -1,0 +1,106 @@
+{{- if .Values.valkey.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-valkey
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-valkey
+spec:
+  type: {{ .Values.valkey.service.type }}
+  selector:
+    app: stackguard-valkey
+  ports:
+    - name: redis
+      port: {{ .Values.valkey.service.port }}
+      targetPort: {{ .Values.valkey.service.port }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: stackguard-valkey
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-valkey
+  annotations:
+    stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
+spec:
+  serviceName: stackguard-valkey
+  # Always exactly one Valkey pod.
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stackguard-valkey
+  template:
+    metadata:
+      labels:
+        app: stackguard-valkey
+        {{- include "stackguard.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      containers:
+        - name: valkey
+          image: {{ include "stackguard.image" (dict "ctx" $ "key" "valkey") }}
+          imagePullPolicy: {{ .Values.images.valkey.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - >-
+              exec valkey-server --appendonly yes
+              --user default off
+              --user "$VALKEY_USER" on ">$VALKEY_PASSWORD" '~*' '&*' '+@all'
+          ports:
+            - containerPort: {{ .Values.valkey.service.port }}
+              name: redis
+          env:
+            - name: VALKEY_USER
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: VALKEY_USER
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: VALKEY_PASSWORD
+          resources:
+            {{- toYaml .Values.valkey.resources | nindent 12 }}
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli --user "$VALKEY_USER" -a "$VALKEY_PASSWORD" --no-auth-warning ping | grep -q PONG
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli --user "$VALKEY_USER" -a "$VALKEY_PASSWORD" --no-auth-warning ping | grep -q PONG
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: valkey-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        storageClassName: {{ required "global.storageClass is required" .Values.global.storageClass | quote }}
+        resources:
+          requests:
+            storage: {{ .Values.valkey.persistence.size }}
+{{- end }}

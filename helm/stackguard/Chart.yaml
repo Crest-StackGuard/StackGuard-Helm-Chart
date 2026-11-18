@@ -1,6 +1,6 @@
 apiVersion: v2
 name: stackguard
-description: StackGuard — one application image (API + UI) and Postgres
+description: StackGuard — server, dashboard, Postgres, and Valkey (Redis-compatible cache)
 type: application
 version: 0.2.3
 appVersion: "2.0.0"

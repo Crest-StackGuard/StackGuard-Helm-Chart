@@ -24,9 +24,14 @@ metadata:
     {{- include "stackguard.labels" . | nindent 4 }}
     app: stackguard-dashboard
   annotations:
+    stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
     stackguard.io/horizontal-scaling: "disabled"
 spec:
-  replicas: {{ .Values.dashboard.replicas }}
+  # Monolithic: exactly one dashboard pod. Never scale out.
+  replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: stackguard-dashboard
