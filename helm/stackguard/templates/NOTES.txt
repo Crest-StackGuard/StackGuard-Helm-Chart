@@ -1,4 +1,5 @@
 1. StackGuard (server + dashboard) deployed to namespace {{ include "stackguard.namespace" . }}.
+   Monolithic: exactly 1 server pod + 1 dashboard pod (no horizontal autoscaling).
 
 2. Wait for pods:
    kubectl get pods -n {{ include "stackguard.namespace" . }} -w

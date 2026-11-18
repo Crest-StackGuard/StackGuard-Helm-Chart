@@ -44,7 +44,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- $image := index $ctx.Values.images $key -}}
 {{- $registry := $image.registry | default "" -}}
 {{- $repository := required "image repository is required" $image.repository -}}
-{{- $tag := $image.tag | default "v1.0.0" -}}
+{{- $tag := $image.tag | default "latest" -}}
 {{- if $registry -}}
 {{- printf "%s/%s:%s" $registry $repository $tag -}}
 {{- else -}}
@@ -54,7 +54,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- $image := .image -}}
 {{- $registry := $image.registry | default "" -}}
 {{- $repository := required "image repository is required" $image.repository -}}
-{{- $tag := $image.tag | default "v1.0.0" -}}
+{{- $tag := $image.tag | default "latest" -}}
 {{- if $registry -}}
 {{- printf "%s/%s:%s" $registry $repository $tag -}}
 {{- else -}}
@@ -74,15 +74,19 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- define "stackguard.databaseUrl" -}}
 {{- if .Values.secrets.databaseUrl -}}
 {{- .Values.secrets.databaseUrl -}}
-{{- else -}}
+{{- else if .Values.postgres.enabled -}}
 {{- printf "postgresql://%s:%s@stackguard-postgres:5432/%s?sslmode=disable" .Values.secrets.postgres.user .Values.secrets.postgres.password .Values.secrets.postgres.database -}}
+{{- else -}}
+{{- fail "postgres.enabled is false — set secrets.databaseUrl to your managed or external Postgres URL" -}}
 {{- end -}}
 {{- end }}
 
 {{- define "stackguard.redisUrl" -}}
 {{- if .Values.secrets.redisUrl -}}
 {{- .Values.secrets.redisUrl -}}
+{{- else if .Values.valkey.enabled -}}
+{{- printf "redis://%s:%s@stackguard-valkey:%v/0" .Values.secrets.valkey.user .Values.secrets.valkey.password .Values.valkey.service.port -}}
 {{- else -}}
-{{- printf "redis://%s:%s@stackguard-valkey:%v/0" .Values.valkey.auth.user .Values.valkey.auth.password .Values.valkey.service.port -}}
+{{- fail "valkey.enabled is false — set secrets.redisUrl to your managed Redis-compatible cache URL" -}}
 {{- end -}}
 {{- end }}

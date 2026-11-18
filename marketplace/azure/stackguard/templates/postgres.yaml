@@ -25,10 +25,13 @@ metadata:
     {{- include "stackguard.labels" . | nindent 4 }}
     app: stackguard-postgres
   annotations:
+    stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
     stackguard.io/horizontal-scaling: "disabled"
 spec:
   serviceName: stackguard-postgres
-  replicas: {{ .Values.postgres.replicas }}
+  # Always exactly one Postgres pod.
+  replicas: 1
   selector:
     matchLabels:
       app: stackguard-postgres

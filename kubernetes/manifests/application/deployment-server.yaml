@@ -7,6 +7,7 @@ metadata:
     stackguard.io/scaling: "disabled"
     stackguard.io/replicas: "1"
 spec:
+  # Monolithic: exactly one server pod. Never scale out.
   replicas: 1
   strategy:
     type: Recreate
@@ -37,6 +38,11 @@ spec:
                 secretKeyRef:
                   name: stackguard-secrets
                   key: STACKGUARD_DATABASE_URL
+            - name: STACKGUARD_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_REDIS_URL
             - name: STACKGUARD_API_URL
               valueFrom:
                 configMapKeyRef:

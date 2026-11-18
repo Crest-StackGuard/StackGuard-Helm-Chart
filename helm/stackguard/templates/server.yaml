@@ -27,6 +27,7 @@ metadata:
     stackguard.io/scaling: "disabled"
     stackguard.io/replicas: "1"
 spec:
+  # Monolithic: exactly one server pod. Never scale out.
   replicas: 1
   strategy:
     type: Recreate

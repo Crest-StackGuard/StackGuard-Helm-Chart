@@ -17,13 +17,15 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
   -f values-eks.yaml
 ```
 
-**Hard limits:** **1** server pod + **1** dashboard pod (no HPA/VPA). Scale vertically only. Images are multi-arch (**amd64** + **arm64**).
+**Hard limits (monolithic):** exactly **1** pod each for server, dashboard, Postgres, and Valkey. No HPA/VPA / horizontal autoscaling — scale vertically only. Images are **linux/amd64 (x86_64) only**.
 
 ## What this chart deploys
 
-- `stackguard-server` — API on port 8080 (`public.ecr.aws/stackguard-io/server`)
-- `stackguard-dashboard` — UI on port 4000 (`public.ecr.aws/stackguard-io/dashboard`)
+- `stackguard-server` — API on port 8080 (`public.ecr.aws/stackguard-io/server:v1.1.1`)
+- `stackguard-dashboard` — UI on port 4000 (`public.ecr.aws/stackguard-io/dashboard:v1.1.1`)
 - `stackguard-postgres` — Postgres 17
+- `stackguard-valkey` — official [`valkey/valkey:8`](https://hub.docker.com/r/valkey/valkey) (Redis-compatible cache for sessions/SSO/rate limits)
+- Optional: disable Postgres/Valkey and use managed Postgres + managed Redis-compatible cache via `secrets.databaseUrl` / `secrets.redisUrl`
 
 No license key env vars. After start, open the site and enter name and email for approval.
 

@@ -4,24 +4,37 @@ secrets:
   stackguardSecret: "0123456789abcdef0123456789abcdef"  # openssl rand -hex 16
   postgres:
     password: replace-with-strong-password              # openssl rand -hex 16
-
-# Optional: set explicitly instead of auto-building from postgres settings
-# secrets:
-#   databaseUrl: postgresql://stackguard:<password>@stackguard-postgres:5432/stackguard?sslmode=disable
+  valkey:
+    password: replace-with-strong-password              # openssl rand -hex 16
 
 urls:
   dashboard: http://localhost:4000
   api: http://localhost:8080
 
-# server:
-#   resources:
-#     requests: { cpu: "4", memory: 8Gi }
-#     limits:   { cpu: "4", memory: 8Gi }
-#   persistence:
-#     size: 10Gi
+# Default pod sizes (8 vCPU / 16 GiB node): server 2/4Gi, dashboard 1/2Gi,
+# postgres 2/4Gi, valkey 1/2Gi.
+# Official Valkey image is images.valkey → valkey/valkey:8
 
-# Pin the application tag for production
+# --- Option A: bundled Postgres + Valkey (default) ---
+# postgres.enabled: true
+# valkey.enabled: true
+
+# --- Option B: managed Postgres + managed Redis-compatible cache ---
+# (e.g. Azure Database for PostgreSQL + Azure Cache for Redis)
+# postgres:
+#   enabled: false
+# valkey:
+#   enabled: false
+# secrets:
+#   databaseUrl: postgresql://user:pass@my-flexible-server.postgres.database.azure.com:5432/stackguard?sslmode=require
+#   redisUrl: rediss://:accesskey@my-cache.redis.cache.windows.net:6380/0
+
+# Pin image tags for production
 # images:
-#   application:
-#     tag: "2.0.0"
-
+#   server:
+#     tag: "v1.1.1"
+#   dashboard:
+#     tag: "v1.1.1"
+#   valkey:
+#     repository: valkey/valkey
+#     tag: "8"

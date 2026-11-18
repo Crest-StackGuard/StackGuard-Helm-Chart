@@ -9,8 +9,12 @@ metadata:
     app: stackguard-dashboard
   annotations:
     stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
 spec:
+  # Monolithic: exactly one dashboard pod. Never scale out.
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: stackguard-dashboard

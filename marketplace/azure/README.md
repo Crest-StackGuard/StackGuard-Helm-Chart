@@ -9,6 +9,10 @@ We maintain **Helm** + **AKS Terraform** knobs. Partner Center / CreateUIDefinit
 | **A** Helm on existing AKS | `helm install` + `values-aks.yaml`                   | App **CPU**, **RAM**, **disk** |
 | **B** Create AKS + Helm    | AKS Terraform (Ubuntu, autoscale off) then same Helm | Same + **node VM size**        |
 
+Default chart ships **server**, **dashboard**, **Postgres**, and official **Valkey** (`valkey/valkey`). Marketplace UI collects `app-stackguardSecret`, `app-postgresPassword`, and `app-valkeyPassword`.
+
+To use **managed** Azure Database for PostgreSQL + **Azure Cache for Redis** (Redis-compatible) instead of in-cluster Postgres/Valkey, set `postgres.enabled: false`, `valkey.enabled: false`, and supply `secrets.databaseUrl` + `secrets.redisUrl` (see [`../../helm/README.md`](../../helm/README.md#managed-postgres-and-cache)).
+
 ## Map UI → code
 
 | UI field     | Offer      | Where                                                          |
@@ -30,12 +34,12 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
 
 ## Fixed (not in UI)
 
-| Rule                | Enforcement                                                                     |
-| ------------------- | ------------------------------------------------------------------------------- |
-| 1 app pod only      | Helm `replicas: 1` (setting `application.replicas` fails)                       |
-| Autoscale off       | AKS `enable_auto_scaling=false` (`vmEnableAutoScale=false`)                     |
-| Ubuntu only         | AKS `os_sku=Ubuntu2204` + Helm `nodeSelector: stackguard.io/os=ubuntu`          |
-| **Subscription ID** | **IMDS only** (`169.254.169.254` + `Metadata: true`) — never Helm / Marketplace |
+| Rule                    | Enforcement                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| Monolithic (1 pod each) | Server, dashboard, Postgres, Valkey hard-locked to **1** replica (no HPA/VPA)   |
+| Autoscale off           | AKS node autoscaler default off; app pods never scale out                       |
+| Ubuntu only             | AKS `os_sku=Ubuntu2204` + Helm `nodeSelector: stackguard.io/os=ubuntu`          |
+| **Subscription ID**     | **IMDS only** (`169.254.169.254` + `Metadata: true`) — never Helm / Marketplace |
 
 Confirm after install:
 

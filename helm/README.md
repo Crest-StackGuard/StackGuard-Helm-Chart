@@ -10,17 +10,20 @@ Deploy StackGuard with a single Helm release on any Kubernetes cluster (AKS, EKS
 
 ## What you get
 
-| Service                | Port | Public?            |
-| ---------------------- | ---- | ------------------ |
-| Application (API + UI) | 8080 | Yes (LoadBalancer) |
-| Postgres               | 5432 | No (internal only) |
+| Service                         | Port | Public?            |
+| ------------------------------- | ---- | ------------------ |
+| Server API                      | 8080 | Yes (LoadBalancer) |
+| Dashboard                       | 4000 | Yes (LoadBalancer) |
+| Postgres                        | 5432 | No (internal only) |
+| Valkey (Redis-compatible cache) | 6379 | No (internal only) |
 
-- One application image from public ECR
-- Postgres 17
+- Server + dashboard images from public ECR (`v1.1.1`)
+- Postgres 17 and **official Valkey** [`valkey/valkey:8`](https://hub.docker.com/r/valkey/valkey)
+- Optional: disable in-cluster Postgres/Valkey and use **managed** Postgres + a **managed Redis-compatible cache** (for example Azure Database for PostgreSQL + Azure Cache for Redis) — see [Managed Postgres and cache](#managed-postgres-and-cache)
 - No license key. Open the site → enter name and email → admin approves → sign in with the emailed password
 - Cloud vs local is detected by the application from instance metadata (AWS account ID, Azure subscription ID, GCP project ID). Do not pass CSP or cloud id through Helm
-- Always **exactly 1** `stackguard-server` pod (golang server). Setting `server.replicas` fails the chart. Never run 2+ app containers.
-- No HPA, no VPA, no cluster/node autoscaling (`vmEnableAutoScale=false`). Scale **vertically** only (pod CPU/RAM + node VM size)
+- **Monolithic:** exactly **1** pod each for server, dashboard, Postgres, and Valkey. Setting `*.replicas` ≠ 1 fails the chart. Never run 2+ of any workload.
+- No HPA, no VPA, no pod autoscaling. Prefer node autoscaling off. Scale **vertically** only (pod CPU/RAM + node VM size)
 - Ubuntu only for the StackGuard node (`values-*-*.yaml` sets `application.nodeSelector.stackguard.io/os=ubuntu`)
 - 10 GiB persistent disk per workload (override `application.persistence.size`)
 - Azure Marketplace: see [`../marketplace/azure/README.md`](../marketplace/azure/README.md)
@@ -72,6 +75,9 @@ openssl rand -hex 16
 
 # Postgres password
 openssl rand -hex 16
+
+# Valkey password
+openssl rand -hex 16
 ```
 
 Edit `values.local.yaml`:
@@ -81,13 +87,31 @@ secrets:
   stackguardSecret: "<output-of-first-openssl-command>"
   postgres:
     password: "<output-of-second-openssl-command>"
+  valkey:
+    password: "<output-of-third-openssl-command>"
 ```
 
-The chart auto-builds `STACKGUARD_DATABASE_URL` from the postgres settings. If you set it manually, it **must** end with `?sslmode=disable`:
+The chart auto-builds `STACKGUARD_DATABASE_URL` and `STACKGUARD_REDIS_URL` from the bundled Postgres/Valkey settings. If you set database URL manually for the in-cluster Postgres, it **must** end with `?sslmode=disable`:
 
 ```text
 postgresql://stackguard:<password>@stackguard-postgres:5432/stackguard?sslmode=disable
 ```
+
+### Managed Postgres and cache
+
+To use **managed Postgres** and a **managed Redis-compatible cache** (for example Azure Database for PostgreSQL + Azure Cache for Redis) instead of the in-cluster containers:
+
+```yaml
+postgres:
+  enabled: false
+valkey:
+  enabled: false
+secrets:
+  databaseUrl: postgresql://user:pass@my-pg.postgres.database.azure.com:5432/stackguard?sslmode=require
+  redisUrl: rediss://:accesskey@my-cache.redis.cache.windows.net:6380/0
+```
+
+Leave `postgres.enabled` / `valkey.enabled` at `true` (default) for the bundled containers.
 
 ---
 
@@ -129,7 +153,8 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
   --version 0.2.2 \
   --set global.storageClass=gp3 \
   --set secrets.stackguardSecret="$(openssl rand -hex 16)" \
-  --set secrets.postgres.password="$(openssl rand -hex 16)"
+  --set secrets.postgres.password="$(openssl rand -hex 16)" \
+  --set secrets.valkey.password="$(openssl rand -hex 16)"
 ```
 
 No Helm registry login is required — chart and app images are on **public ECR**.
@@ -145,8 +170,10 @@ kubectl get pods -n stackguard -w
 Expected:
 
 ```text
-stackguard-server-...   1/1   Running
-stackguard-postgres-0        1/1   Running
+stackguard-server-...     1/1   Running
+stackguard-dashboard-...  1/1   Running
+stackguard-postgres-0     1/1   Running
+stackguard-valkey-0       1/1   Running
 ```
 
 Press `Ctrl+C` to stop watching.
@@ -216,17 +243,17 @@ kubectl describe pod -n stackguard -l app=stackguard-server
 
 ## Scale (machine size only — never more pods)
 
-Replicas stay at **1**. Do not add HPA/VPA. Raise resources, then enlarge the node:
+StackGuard is **monolithic**: server and dashboard are hard-locked to **1 replica each** (same for Postgres and Valkey). Do **not** add HPA/VPA or raise `replicas`. Raise resources, then enlarge the node:
 
 ```yaml
-application:
+server:
   resources:
-    requests:
-      cpu: "8"
-      memory: 16Gi
-    limits:
-      cpu: "8"
-      memory: 16Gi
+    requests: { cpu: "4", memory: 8Gi }
+    limits: { cpu: "4", memory: 8Gi }
+dashboard:
+  resources:
+    requests: { cpu: "2", memory: 4Gi }
+    limits: { cpu: "2", memory: 4Gi }
 ```
 
 ```bash
@@ -278,10 +305,14 @@ kubectl delete pvc -n stackguard --all
 
 ## Default sizing
 
-| Service     | CPU | RAM   | Disk   |
-| ----------- | --- | ----- | ------ |
-| Application | 4   | 8 GiB | 10 GiB |
-| Postgres    | 4   | 8 GiB | 10 GiB |
+Fits one **8 vCPU / 16 GiB** node with headroom for kube-system:
+
+| Service   | CPU | RAM   | Disk   |
+| --------- | --- | ----- | ------ |
+| Server    | 2   | 4 GiB | 10 GiB |
+| Dashboard | 1   | 2 GiB | —      |
+| Postgres  | 2   | 4 GiB | 10 GiB |
+| Valkey    | 1   | 2 GiB | 2 GiB  |
 
 | Cloud | Recommended node VM                  | Storage class  |
 | ----- | ------------------------------------ | -------------- |
@@ -325,18 +356,26 @@ Infrastructure requirements (covered by [`../infrastructure/`](../infrastructure
 
 ## Key Helm values reference
 
-| Value                       | Description                                                  |
-| --------------------------- | ------------------------------------------------------------ |
-| `global.storageClass`       | **Required.** PVC storage class for your cloud               |
-| `secrets.stackguardSecret`  | **Required.** 32-character app secret                        |
-| `secrets.postgres.password` | **Required.** Postgres password                              |
-| `urls.application`          | Public URL people open — set after the LoadBalancer is ready |
-| `images.application.tag`    | Pin the application image version (default: `v1.0.0`)        |
-| `application.service.type`  | Default `LoadBalancer`                                       |
-| `application.resources`     | CPU/RAM for the single application pod                       |
-| `networkPolicy.enabled`     | Permissive network policy (default `true`)                   |
+| Value                         | Description                                                      |
+| ----------------------------- | ---------------------------------------------------------------- |
+| `global.storageClass`         | **Required.** PVC storage class for your cloud                   |
+| `secrets.stackguardSecret`    | **Required.** 32-character app secret                            |
+| `secrets.postgres.password`   | **Required** when using bundled Postgres                         |
+| `secrets.valkey.password`     | **Required** when using bundled Valkey                           |
+| `secrets.databaseUrl`         | Managed / external Postgres URL (set `postgres.enabled: false`)  |
+| `secrets.redisUrl`            | Managed Redis-compatible cache URL (set `valkey.enabled: false`) |
+| `urls.api` / `urls.dashboard` | Public URLs — set after LoadBalancers are ready                  |
+| `images.server.tag`           | Server image tag (default: `v1.1.1`)                             |
+| `images.dashboard.tag`        | Dashboard image tag (default: `v1.1.1`)                          |
+| `images.valkey`               | Official Valkey image (`valkey/valkey:8`)                        |
+| `postgres.enabled`            | Bundled Postgres (default `true`)                                |
+| `valkey.enabled`              | Bundled Valkey (default `true`)                                  |
+| `server.service.type`         | Default `LoadBalancer`                                           |
+| `server.resources`            | CPU/RAM for the server pod                                       |
+| `valkey.resources`            | CPU/RAM for the Valkey cache pod                                 |
+| `networkPolicy.enabled`       | Permissive network policy (default `true`)                       |
 
-Replicas are hardcoded to `1`. There is no `replicas` or `vpa` value.
+Replicas are hardcoded to `1`. Setting `server.replicas` / `dashboard.replicas` (or postgres/valkey) to anything else **fails** the chart. `vpa.enabled` must stay `false`.
 
 Full defaults: [`stackguard/values.yaml`](stackguard/values.yaml)
 
@@ -347,9 +386,10 @@ Full defaults: [`stackguard/values.yaml`](stackguard/values.yaml)
 | Artifact   | URI                                             |
 | ---------- | ----------------------------------------------- |
 | Helm chart | `oci://public.ecr.aws/stackguard-io/stackguard` |
-| Server     | `public.ecr.aws/stackguard-io/server`           |
-| Dashboard  | `public.ecr.aws/stackguard-io/dashboard`        |
+| Server     | `public.ecr.aws/stackguard-io/server:v1.1.1`    |
+| Dashboard  | `public.ecr.aws/stackguard-io/dashboard:v1.1.1` |
 | Postgres   | `postgres:17` (Docker Hub)                      |
+| Valkey     | `valkey/valkey:8` (official, Docker Hub)        |
 
 ---
 

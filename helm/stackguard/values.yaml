@@ -1,4 +1,12 @@
 # Default values for the Stackguard Helm chart (split server + dashboard).
+#
+# Bundled by default: server, dashboard, Postgres, Valkey (official valkey/valkey).
+# For managed Postgres + managed Redis-compatible cache (e.g. Azure Cache for Redis),
+# set postgres.enabled / valkey.enabled to false and supply secrets.databaseUrl + secrets.redisUrl.
+#
+# Monolithic: exactly ONE pod each for server, dashboard, postgres, and valkey.
+# No HPA / VPA / horizontal pod autoscaling. Scale by raising CPU/RAM or node size only.
+# Setting *.replicas to anything other than 1 fails the chart.
 namespace: stackguard
 createNamespace: true
 
@@ -19,23 +27,34 @@ secrets:
     database: stackguard
     user: stackguard
     password: replace-with-strong-password
+  valkey:
+    user: stackguard
+    password: replace-with-strong-password
+  # Managed / external overrides (used when postgres.enabled or valkey.enabled is false)
   databaseUrl: ""
+  redisUrl: ""
 
 images:
   dashboard:
     registry: public.ecr.aws
     repository: stackguard-io/dashboard
-    tag: latest
-    pullPolicy: Always
+    tag: v1.1.1
+    pullPolicy: IfNotPresent
   server:
     registry: public.ecr.aws
     repository: stackguard-io/server
-    tag: latest
-    pullPolicy: Always
+    tag: v1.1.1
+    pullPolicy: IfNotPresent
   postgres:
     registry: ""
     repository: postgres
     tag: "17"
+    pullPolicy: IfNotPresent
+  # Official Valkey image: https://hub.docker.com/r/valkey/valkey
+  valkey:
+    registry: ""
+    repository: valkey/valkey
+    tag: "8"
     pullPolicy: IfNotPresent
 
 dashboard:
@@ -46,10 +65,10 @@ dashboard:
   resources:
     requests:
       cpu: "1"
-      memory: 1Gi
+      memory: 2Gi
     limits:
       cpu: "1"
-      memory: 1Gi
+      memory: 2Gi
 
 server:
   enabled: true
@@ -59,29 +78,26 @@ server:
   nodeSelector: {}
   resources:
     requests:
-      cpu: "4"
-      memory: 8Gi
+      cpu: "2"
+      memory: 4Gi
     limits:
-      cpu: "4"
-      memory: 8Gi
+      cpu: "2"
+      memory: 4Gi
   persistence:
     size: 10Gi
 
 valkey:
   enabled: true
-  image: valkey/valkey:8
   service:
+    type: ClusterIP
     port: 6379
-  auth:
-    user: stackguard
-    password: replace-with-strong-password
   resources:
     requests:
-      cpu: "250m"
-      memory: 256Mi
+      cpu: "1"
+      memory: 2Gi
     limits:
       cpu: "1"
-      memory: 512Mi
+      memory: 2Gi
   persistence:
     size: 2Gi
 
