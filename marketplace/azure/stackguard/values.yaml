@@ -33,12 +33,10 @@ global:
         registry: public.ecr.aws
         image: stackguard-io/server
         tag: "v1.1.1"
-      # Postgres 16: earlier bundle releases shipped 16.4, and Postgres cannot
-      # open data from another major version. Move to 17 only with a migration.
       postgres:
         registry: docker.io/library
         image: postgres
-        tag: "16.16"
+        tag: "17.12"
       # Official Valkey: https://hub.docker.com/r/valkey/valkey
       valkey:
         registry: docker.io
@@ -78,7 +76,7 @@ images:
   postgres:
     registry: docker.io/library
     repository: postgres
-    tag: "16.16"
+    tag: "17.12"
     pullPolicy: IfNotPresent
   valkey:
     registry: docker.io

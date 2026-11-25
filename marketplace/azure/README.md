@@ -50,7 +50,7 @@ kubectl logs -n stackguard -l app=stackguard-server --tail=50 | grep -E 'Azure d
 
 ## Build and publish the CNAB bundle
 
-The bundle chart in `stackguard/` shares its templates with `helm/stackguard`; only `values.yaml` differs (images under `global.azure.images`, empty namespace, Postgres 16).
+The bundle chart in `stackguard/` shares its templates with `helm/stackguard`; only `values.yaml` differs (images under `global.azure.images`, empty namespace).
 
 1. Make template changes in `helm/stackguard`, then copy them across: `./sync-chart.sh`.
 2. Lint: `helm lint ./stackguard`.
