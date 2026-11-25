@@ -1,26 +1,18 @@
-1. Stackguard has been deployed to namespace {{ include "stackguard.namespace" . }}.
+1. StackGuard (server + dashboard) deployed to namespace {{ include "stackguard.namespace" . }}.
+   Monolithic: exactly 1 pod each for server, dashboard, Postgres and Valkey (no autoscaling).
 
-2. Wait for all pods to become Running:
-
+2. Wait for pods:
    kubectl get pods -n {{ include "stackguard.namespace" . }} -w
 
-3. Get public LoadBalancer IPs:
+3. Public services:
+   kubectl get svc -n {{ include "stackguard.namespace" . }} stackguard-server stackguard-dashboard
 
-   kubectl get svc -n {{ include "stackguard.namespace" . }}
+4. Current URLs (set urls.api / urls.dashboard, or on AKS <component>.service.azureDnsLabel
+   with global.azureRegion, then upgrade the release):
+   API:       {{ include "stackguard.publicUrl" (dict "ctx" . "url" .Values.urls.api "service" .Values.server.service) }}
+   Dashboard: {{ include "stackguard.publicUrl" (dict "ctx" . "url" .Values.urls.dashboard "service" .Values.dashboard.service) }}
 
-4. Update URLs, then upgrade the release:
+5. After changing URLs, restart the workloads:
+   kubectl rollout restart deployment/stackguard-server deployment/stackguard-dashboard -n {{ include "stackguard.namespace" . }}
 
-   helm upgrade {{ .Release.Name }} oci://public.ecr.aws/stackguard-io/stackguard \
-     --version {{ .Chart.Version }} \
-     -f values.local.yaml \
-     --set urls.dashboard=http://<dashboard-ip>:4000 \
-     --set urls.api=http://<server-ip>:8080
-
-5. Restart app deployments to pick up URL changes:
-
-   kubectl rollout restart deployment -n {{ include "stackguard.namespace" . }} \
-     stackguard-dashboard stackguard-server
-
-6. Open the dashboard:
-
-   http://<dashboard-ip>:4000
+6. Open the dashboard URL in the browser. API webhooks use the API URL.

@@ -1,37 +1,18 @@
-1. StackGuard has been deployed to namespace {{ include "stackguard.namespace" . }}.
+1. StackGuard (server + dashboard) deployed to namespace {{ include "stackguard.namespace" . }}.
+   Monolithic: exactly 1 pod each for server, dashboard, Postgres and Valkey (no autoscaling).
 
 2. Wait for pods:
-
    kubectl get pods -n {{ include "stackguard.namespace" . }} -w
 
-3. Get the public address:
+3. Public services:
+   kubectl get svc -n {{ include "stackguard.namespace" . }} stackguard-server stackguard-dashboard
 
-   kubectl get svc -n {{ include "stackguard.namespace" . }} stackguard-application
+4. Current URLs (set urls.api / urls.dashboard, or on AKS <component>.service.azureDnsLabel
+   with global.azureRegion, then upgrade the release):
+   API:       {{ include "stackguard.publicUrl" (dict "ctx" . "url" .Values.urls.api "service" .Values.server.service) }}
+   Dashboard: {{ include "stackguard.publicUrl" (dict "ctx" . "url" .Values.urls.dashboard "service" .Values.dashboard.service) }}
 
-4. Set the public URL, then upgrade:
+5. After changing URLs, restart the workloads:
+   kubectl rollout restart deployment/stackguard-server deployment/stackguard-dashboard -n {{ include "stackguard.namespace" . }}
 
-   helm upgrade {{ .Release.Name }} oci://public.ecr.aws/stackguard-io/stackguard \
-     --version {{ .Chart.Version }} \
-     -f values.local.yaml \
-     --set urls.application=http://<application-ip>:8080
-
-5. Restart so the new URL is picked up:
-
-   kubectl rollout restart deployment/stackguard-application -n {{ include "stackguard.namespace" . }}
-
-6. Confirm cloud detection (account / subscription / project ID from instance metadata):
-
-   kubectl logs -n {{ include "stackguard.namespace" . }} -l app=stackguard-application --tail=50 | grep -E 'AWS detected|Azure detected|GCP detected|provider='
-
-   Expect one of:
-     AWS detected - ID: <accountId>
-     Azure detected - ID: <subscriptionId>
-     GCP detected - ID: <projectId>
-
-   If you see provider=local on EKS, set IMDS hop limit to 2 on the node (see Helm README).
-   Do not block egress to 169.254.169.254/32 (or metadata.google.internal on GKE).
-
-7. Open StackGuard in the browser. Enter your name and email to ask for approval.
-   No license key is used. After approval, sign in with the password from the email.
-
-   http://<application-ip>:8080
+6. Open the dashboard URL in the browser. API webhooks use the API URL.

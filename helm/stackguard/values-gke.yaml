@@ -1,7 +1,18 @@
 global:
   storageClass: standard-rwo
 
-# StackGuard application runs only on Ubuntu-labeled nodes (set by GKE Terraform / UBUNTU_CONTAINERD).
-application:
-  nodeSelector:
-    stackguard.io/os: ubuntu
+# Our Terraform labels nodes stackguard.io/os=ubuntu (GKE Terraform / UBUNTU_CONTAINERD).
+# To pin StackGuard to those nodes, uncomment. Leave it off on clusters
+# without that label, or pods stay Pending.
+# server:
+#   nodeSelector:
+#     stackguard.io/os: ubuntu
+# dashboard:
+#   nodeSelector:
+#     stackguard.io/os: ubuntu
+# postgres:
+#   nodeSelector:
+#     stackguard.io/os: ubuntu
+# valkey:
+#   nodeSelector:
+#     stackguard.io/os: ubuntu

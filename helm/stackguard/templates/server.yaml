@@ -1,0 +1,160 @@
+{{- if .Values.server.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: server-data-pvc
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-server
+  annotations:
+    # Scan data outlives the release: helm uninstall / chart changes never delete it.
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: {{ required "global.storageClass is required" .Values.global.storageClass | quote }}
+  resources:
+    requests:
+      storage: {{ .Values.server.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stackguard-server
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-server
+  annotations:
+    stackguard.io/scaling: "disabled"
+    stackguard.io/replicas: "1"
+spec:
+  # Monolithic: exactly one server pod. Never scale out.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: stackguard-server
+  template:
+    metadata:
+      labels:
+        app: stackguard-server
+        {{- include "stackguard.selectorLabels" . | nindent 8 }}
+        {{- include "stackguard.billingLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      restartPolicy: Always
+      {{- with .Values.server.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.server.persistence.migrateLegacyLayout }}
+      initContainers:
+        # Chart <= 0.2.0 and Marketplace bundle <= 1.0.x mounted the volume root at
+        # /scans. Move that data into scans/ once, so it stays visible under the
+        # sub-path layout below. No-op on new volumes and on every later start.
+        - name: data-layout
+          image: {{ include "stackguard.image" (dict "ctx" $ "key" "server") }}
+          imagePullPolicy: {{ .Values.images.server.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              cd /data
+              [ -e .stackguard-layout-v2 ] && exit 0
+              mkdir -p scans storage-scans report-pdfs identity-models
+              for f in * .[!.]* ..?*; do
+                [ -e "$f" ] || continue
+                case "$f" in
+                  scans|storage-scans|report-pdfs|identity-models|lost+found|.stackguard-layout-v2) ;;
+                  *) mv "$f" scans/ ;;
+                esac
+              done
+              touch .stackguard-layout-v2
+          volumeMounts:
+            - name: server-data
+              mountPath: /data
+      {{- end }}
+      containers:
+        - name: server
+          image: {{ include "stackguard.image" (dict "ctx" $ "key" "server") }}
+          imagePullPolicy: {{ .Values.images.server.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.server.service.port }}
+              name: http
+          env:
+            - name: STACKGUARD_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_SECRET
+            - name: STACKGUARD_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_DATABASE_URL
+            - name: STACKGUARD_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: stackguard-secrets
+                  key: STACKGUARD_REDIS_URL
+            - name: STACKGUARD_API_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_API_URL
+            - name: STACKGUARD_DASHBOARD_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: stackguard-config
+                  key: STACKGUARD_DASHBOARD_URL
+          resources:
+            {{- toYaml .Values.server.resources | nindent 12 }}
+          {{- include "stackguard.tcpProbes" (dict "port" .Values.server.service.port) | nindent 10 }}
+          # Four data dirs on one volume; sub-paths keep them separate across pod recreate.
+          volumeMounts:
+            - name: server-data
+              mountPath: /scans
+              subPath: scans
+            - name: server-data
+              mountPath: /app/storage_scans
+              subPath: storage-scans
+            - name: server-data
+              mountPath: /app/report_pdfs
+              subPath: report-pdfs
+            - name: server-data
+              mountPath: /app/identity-resolver/models
+              subPath: identity-models
+      volumes:
+        - name: server-data
+          persistentVolumeClaim:
+            claimName: server-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stackguard-server
+  namespace: {{ include "stackguard.namespace" . }}
+  labels:
+    {{- include "stackguard.labels" . | nindent 4 }}
+    app: stackguard-server
+  {{- with .Values.server.service.azureDnsLabel }}
+  annotations:
+    # AKS only: publishes <label>.<region>.cloudapp.azure.com for this LoadBalancer.
+    service.beta.kubernetes.io/azure-dns-label-name: {{ . | quote }}
+  {{- end }}
+spec:
+  type: {{ .Values.server.service.type }}
+  selector:
+    app: stackguard-server
+  ports:
+    - name: http
+      port: {{ .Values.server.service.port }}
+      targetPort: {{ .Values.server.service.port }}
+{{- end }}

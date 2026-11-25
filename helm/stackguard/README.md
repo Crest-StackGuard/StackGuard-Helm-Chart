@@ -2,7 +2,7 @@
 
 Chart source for StackGuard. **Install guide:** [`../README.md`](../README.md)
 
-**Published:** `oci://public.ecr.aws/stackguard-io/stackguard:0.2.2`  
+**Published:** `oci://public.ecr.aws/stackguard-io/stackguard:0.3.0`  
 **Artifact Hub:** [artifacthub.io/packages/helm/stackguard/stackguard](https://artifacthub.io/packages/helm/stackguard/stackguard)
 
 ## Quick install
@@ -12,17 +12,20 @@ cp values.local.yaml.example values.local.yaml
 # edit secrets in values.local.yaml
 
 helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.2.2 \
+  --version 0.3.0 \
   -f values.local.yaml \
   -f values-eks.yaml
 ```
 
-**Hard limits:** exactly **1** `stackguard-application` pod (no replicas knob, no HPA/VPA). Ubuntu nodes only (`stackguard.io/os=ubuntu`). Scale by raising CPU/RAM/disk + node VM size.
+**Hard limits (monolithic):** exactly **1** pod each for server, dashboard, Postgres, and Valkey. No HPA/VPA / horizontal autoscaling — scale vertically only. Images are **linux/amd64 (x86_64) only**.
 
 ## What this chart deploys
 
-- `stackguard-application` — API + UI on port 8080 (`public.ecr.aws/stackguard-io/stackguard`)
+- `stackguard-server` — API on port 8080 (`public.ecr.aws/stackguard-io/server:v1.1.1`)
+- `stackguard-dashboard` — UI on port 4000 (`public.ecr.aws/stackguard-io/dashboard:v1.1.1`)
 - `stackguard-postgres` — Postgres 17
+- `stackguard-valkey` — official [`valkey/valkey:8`](https://hub.docker.com/r/valkey/valkey) (Redis-compatible cache for sessions/SSO/rate limits)
+- Optional: disable Postgres/Valkey and use managed Postgres + managed Redis-compatible cache via `secrets.databaseUrl` / `secrets.redisUrl`
 
 No license key env vars. After start, open the site and enter name and email for approval.
 
