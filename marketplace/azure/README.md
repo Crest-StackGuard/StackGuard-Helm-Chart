@@ -17,9 +17,9 @@ To use **managed** Azure Database for PostgreSQL + **Azure Cache for Redis** (Re
 
 | UI field     | Offer      | Where                                                          |
 | ------------ | ---------- | -------------------------------------------------------------- |
-| App CPU      | A, B       | Helm `application.resources.requests.cpu` + `limits.cpu`       |
-| App RAM      | A, B       | Helm `application.resources.requests.memory` + `limits.memory` |
-| App disk     | A, B       | Helm `application.persistence.size`                            |
+| App CPU      | A, B       | Helm `server.resources.requests.cpu` + `limits.cpu`            |
+| App RAM      | A, B       | Helm `server.resources.requests.memory` + `limits.memory`      |
+| App disk     | A, B       | Helm `server.persistence.size`                                 |
 | Node VM size | **B only** | AKS Terraform `node_vm_size`                                   |
 
 Example Helm overrides: [`../../helm/stackguard/values.marketplace.yaml.example`](../../helm/stackguard/values.marketplace.yaml.example)
@@ -38,7 +38,7 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
 | ----------------------- | ------------------------------------------------------------------------------- |
 | Monolithic (1 pod each) | Server, dashboard, Postgres, Valkey hard-locked to **1** replica (no HPA/VPA)   |
 | Autoscale off           | AKS node autoscaler default off; app pods never scale out                       |
-| Ubuntu only             | AKS `os_sku=Ubuntu2204` + Helm `nodeSelector: stackguard.io/os=ubuntu`          |
+| Ubuntu only             | AKS `os_sku=Ubuntu2204`; Helm `*.nodeSelector` optional (off by default)        |
 | **Subscription ID**     | **IMDS only** (`169.254.169.254` + `Metadata: true`) — never Helm / Marketplace |
 
 Confirm after install:
@@ -47,3 +47,15 @@ Confirm after install:
 kubectl logs -n stackguard -l app=stackguard-server --tail=50 | grep -E 'Azure detected|provider='
 # expect: Azure detected - ID: <subscriptionId>
 ```
+
+## Build and publish the CNAB bundle
+
+The bundle chart in `stackguard/` shares its templates with `helm/stackguard`; only `values.yaml` differs (images under `global.azure.images`, empty namespace, Postgres 16).
+
+1. Make template changes in `helm/stackguard`, then copy them across: `./sync-chart.sh`.
+2. Lint: `helm lint ./stackguard`.
+3. Bump `version` in `manifest.yaml` for every submission. CNAB tags are immutable once attached to an offer.
+4. Build and push with the packaging tool (needs Docker on a linux/amd64 host): `./build-bundle.sh <acr-name>`. It runs `cpa verify` and `cpa buildbundle` in `mcr.microsoft.com/container-package-app`.
+5. Reference the new bundle version from the Partner Center offer.
+
+Every pod carries the `azure-extensions-usage-release-identifier` billing label when `global.azure` is set. All images, including Postgres and Valkey, are listed under `global.azure.images` so the packaging tool can copy them into the Microsoft registry; nothing is pulled from elsewhere at install time.

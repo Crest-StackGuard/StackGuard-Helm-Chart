@@ -18,14 +18,14 @@ Deploy StackGuard with a single Helm release on any Kubernetes cluster (AKS, EKS
 | Valkey (Redis-compatible cache) | 6379 | No (internal only) |
 
 - Server + dashboard images from public ECR (`v1.1.1`)
-- Postgres 17 and **official Valkey** [`valkey/valkey:8`](https://hub.docker.com/r/valkey/valkey)
+- Postgres 17.12 and **official Valkey** [`valkey/valkey:8.1.12`](https://hub.docker.com/r/valkey/valkey)
 - Optional: disable in-cluster Postgres/Valkey and use **managed** Postgres + a **managed Redis-compatible cache** (for example Azure Database for PostgreSQL + Azure Cache for Redis) — see [Managed Postgres and cache](#managed-postgres-and-cache)
 - No license key. Open the site → enter name and email → admin approves → sign in with the emailed password
 - Cloud vs local is detected by the application from instance metadata (AWS account ID, Azure subscription ID, GCP project ID). Do not pass CSP or cloud id through Helm
 - **Monolithic:** exactly **1** pod each for server, dashboard, Postgres, and Valkey. Setting `*.replicas` ≠ 1 fails the chart. Never run 2+ of any workload.
 - No HPA, no VPA, no pod autoscaling. Prefer node autoscaling off. Scale **vertically** only (pod CPU/RAM + node VM size)
-- Ubuntu only for the StackGuard node (`values-*-*.yaml` sets `application.nodeSelector.stackguard.io/os=ubuntu`)
-- 10 GiB persistent disk per workload (override `application.persistence.size`)
+- Optional node pinning: our Terraform labels nodes `stackguard.io/os=ubuntu`; set `server/dashboard/postgres/valkey.nodeSelector` to use it (commented examples in `values-*.yaml`)
+- 10 GiB persistent disk for server data (override `server.persistence.size`); kept on `helm uninstall`
 - Azure Marketplace: see [`../marketplace/azure/README.md`](../marketplace/azure/README.md)
 
 ---
@@ -123,7 +123,7 @@ Pick the cloud overlay for your storage class, or set `global.storageClass` your
 
 ```bash
 helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.2.2 \
+  --version 0.3.0 \
   -f values.local.yaml \
   -f values-eks.yaml
 ```
@@ -132,7 +132,7 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
 
 ```bash
 helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.2.2 \
+  --version 0.3.0 \
   -f values.local.yaml \
   -f values-aks.yaml
 ```
@@ -141,7 +141,7 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
 
 ```bash
 helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.2.2 \
+  --version 0.3.0 \
   -f values.local.yaml \
   -f values-gke.yaml
 ```
@@ -150,7 +150,7 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
 
 ```bash
 helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.2.2 \
+  --version 0.3.0 \
   --set global.storageClass=gp3 \
   --set secrets.stackguardSecret="$(openssl rand -hex 16)" \
   --set secrets.postgres.password="$(openssl rand -hex 16)" \
@@ -183,25 +183,28 @@ Press `Ctrl+C` to stop watching.
 ## Step 5 — Get the LoadBalancer IP and set the URL
 
 ```bash
-kubectl get svc -n stackguard stackguard-server
+kubectl get svc -n stackguard stackguard-server stackguard-dashboard
 ```
 
-Copy the **EXTERNAL-IP** (or hostname). Update `values.local.yaml`:
+Copy each **EXTERNAL-IP** (or hostname). Update `values.local.yaml`:
 
 ```yaml
 urls:
-  application: http://<application-ip>:8080
+  api: http://<server-ip>:8080
+  dashboard: http://<dashboard-ip>:4000
 ```
+
+On AKS you can skip the IP step: set `server.service.azureDnsLabel`, `dashboard.service.azureDnsLabel` and `global.azureRegion`, and leave `urls.*` empty. The URLs become `http://<label>.<region>.cloudapp.azure.com:<port>`.
 
 Upgrade the release and restart:
 
 ```bash
 helm upgrade stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.2.2 \
+  --version 0.3.0 \
   -f values.local.yaml \
   -f values-eks.yaml
 
-kubectl rollout restart deployment -n stackguard stackguard-server
+kubectl rollout restart deployment -n stackguard stackguard-server stackguard-dashboard
 ```
 
 Confirm the app detected the cloud tenant (no env vars needed):
@@ -210,7 +213,7 @@ Confirm the app detected the cloud tenant (no env vars needed):
 kubectl logs -n stackguard -l app=stackguard-server --tail=50 | grep -E 'AWS detected|Azure detected|GCP detected|provider='
 ```
 
-Open in the browser: **http://\<application-ip\>:8080**
+Open the dashboard in the browser: **http://\<dashboard-ip\>:4000**
 
 Enter name and email for approval. After approval, refresh and sign in with the emailed password.
 
@@ -258,7 +261,7 @@ dashboard:
 
 ```bash
 helm upgrade stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.2.2 \
+  --version 0.3.0 \
   -f values.local.yaml \
   -f values-eks.yaml
 
@@ -278,13 +281,22 @@ helm upgrade stackguard oci://public.ecr.aws/stackguard-io/stackguard \
   -f values-eks.yaml
 ```
 
-Pin the application tag for reproducible deploys:
+Image tags are pinned in `values.yaml`. To move to a newer StackGuard release, override them:
 
 ```yaml
 images:
-  application:
-    tag: "2.0.0"
+  server:
+    tag: "v1.1.1"
+  dashboard:
+    tag: "v1.1.1"
 ```
+
+### Upgrading from earlier chart versions
+
+| From | What happens | What to do |
+| ---- | ------------ | ---------- |
+| 0.1.x (server + dashboard, Postgres 16.4) | `server-data-pvc` is kept. On first start an init container moves the old data (volume root mounted at `/scans`) into the new `scans/` folder. Postgres 16 data cannot be opened by Postgres 17: the `version-check` init container stops the pod with an error. | Before upgrading, add `--set images.postgres.tag=16.16` (stay on 16), or dump the database with `pg_dump` and restore it into a fresh 17 install. |
+| 0.2.x (single `stackguard-application` pod) | `application-data-pvc` leaves the chart and Helm deletes it, together with scans and reports stored there. Postgres is already 17. | Back up the volume first (for example `kubectl cp` from the running pod, or a disk snapshot), then restore into `server-data-pvc` after the upgrade. |
 
 ---
 
@@ -295,7 +307,7 @@ helm uninstall stackguard
 kubectl delete namespace stackguard
 ```
 
-PVCs inside the namespace are removed with the namespace. If you installed into an existing namespace with `createNamespace: false`, delete PVCs manually:
+`helm uninstall` keeps `server-data-pvc` (annotated `helm.sh/resource-policy: keep`) so scan data survives a reinstall. PVCs inside the namespace are removed with the namespace. If you installed into an existing namespace with `createNamespace: false`, delete PVCs manually:
 
 ```bash
 kubectl delete pvc -n stackguard --all
@@ -367,7 +379,7 @@ Infrastructure requirements (covered by [`../infrastructure/`](../infrastructure
 | `urls.api` / `urls.dashboard` | Public URLs — set after LoadBalancers are ready                  |
 | `images.server.tag`           | Server image tag (default: `v1.1.1`)                             |
 | `images.dashboard.tag`        | Dashboard image tag (default: `v1.1.1`)                          |
-| `images.valkey`               | Official Valkey image (`valkey/valkey:8`)                        |
+| `images.valkey`               | Official Valkey image (`valkey/valkey:8.1.12`)                        |
 | `postgres.enabled`            | Bundled Postgres (default `true`)                                |
 | `valkey.enabled`              | Bundled Valkey (default `true`)                                  |
 | `server.service.type`         | Default `LoadBalancer`                                           |
@@ -388,8 +400,8 @@ Full defaults: [`stackguard/values.yaml`](stackguard/values.yaml)
 | Helm chart | `oci://public.ecr.aws/stackguard-io/stackguard` |
 | Server     | `public.ecr.aws/stackguard-io/server:v1.1.1`    |
 | Dashboard  | `public.ecr.aws/stackguard-io/dashboard:v1.1.1` |
-| Postgres   | `postgres:17` (Docker Hub)                      |
-| Valkey     | `valkey/valkey:8` (official, Docker Hub)        |
+| Postgres   | `postgres:17.12` (Docker Hub)                   |
+| Valkey     | `valkey/valkey:8.1.12` (official, Docker Hub)   |
 
 ---
 

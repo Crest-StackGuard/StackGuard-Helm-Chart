@@ -23,7 +23,7 @@ spec:
       containers:
         - name: dashboard
           image: ${DASHBOARD_IMAGE}
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 4000
               name: http
@@ -40,3 +40,15 @@ spec:
             limits:
               cpu: "${DASHBOARD_LIMIT_CPU}"
               memory: "${DASHBOARD_LIMIT_MEM}"
+          livenessProbe:
+            tcpSocket:
+              port: 4000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 4000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3

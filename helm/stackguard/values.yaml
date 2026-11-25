@@ -16,8 +16,12 @@ fullnameOverride: ""
 global:
   storageClass: ""
   imagePullSecrets: []
+  # AKS region (e.g. centralindia). With <component>.service.azureDnsLabel set,
+  # empty urls below resolve to http://<label>.<region>.cloudapp.azure.com:<port>.
+  azureRegion: ""
 
 urls:
+  # Empty -> Azure DNS name (see global.azureRegion), else http://localhost:<port>.
   dashboard: http://localhost:4000
   api: http://localhost:8080
 
@@ -34,6 +38,7 @@ secrets:
   databaseUrl: ""
   redisUrl: ""
 
+# Every image needs a pinned tag (or digest); the chart refuses to guess one.
 images:
   dashboard:
     registry: public.ecr.aws
@@ -45,16 +50,18 @@ images:
     repository: stackguard-io/server
     tag: v1.1.1
     pullPolicy: IfNotPresent
+  # Postgres 17. Upgrading from chart 0.1.x (Postgres 16.4)? Set tag "16.16" or
+  # migrate first — see "Upgrading" in helm/README.md.
   postgres:
     registry: ""
     repository: postgres
-    tag: "17"
+    tag: "17.12"
     pullPolicy: IfNotPresent
   # Official Valkey image: https://hub.docker.com/r/valkey/valkey
   valkey:
     registry: ""
     repository: valkey/valkey
-    tag: "8"
+    tag: "8.1.12"
     pullPolicy: IfNotPresent
 
 dashboard:
@@ -62,6 +69,10 @@ dashboard:
   service:
     type: LoadBalancer
     port: 4000
+    # AKS only: publishes <label>.<region>.cloudapp.azure.com for this LoadBalancer.
+    azureDnsLabel: ""
+  # Optional, e.g. stackguard.io/os: ubuntu (the label our Terraform sets on nodes).
+  nodeSelector: {}
   resources:
     requests:
       cpu: "1"
@@ -75,6 +86,8 @@ server:
   service:
     type: LoadBalancer
     port: 8080
+    # AKS only: publishes <label>.<region>.cloudapp.azure.com for this LoadBalancer.
+    azureDnsLabel: ""
   nodeSelector: {}
   resources:
     requests:
@@ -85,12 +98,16 @@ server:
       memory: 4Gi
   persistence:
     size: 10Gi
+    # Move data from the old single-folder layout (root mounted at /scans) into
+    # scans/ on first start. Safe on new volumes; runs once per volume.
+    migrateLegacyLayout: true
 
 valkey:
   enabled: true
   service:
     type: ClusterIP
     port: 6379
+  nodeSelector: {}
   resources:
     requests:
       cpu: "1"
@@ -106,6 +123,7 @@ postgres:
   service:
     type: ClusterIP
     port: 5432
+  nodeSelector: {}
   resources:
     requests:
       cpu: "2"

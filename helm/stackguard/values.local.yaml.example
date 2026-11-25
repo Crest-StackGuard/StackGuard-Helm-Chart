@@ -13,7 +13,7 @@ urls:
 
 # Default pod sizes (8 vCPU / 16 GiB node): server 2/4Gi, dashboard 1/2Gi,
 # postgres 2/4Gi, valkey 1/2Gi.
-# Official Valkey image is images.valkey → valkey/valkey:8
+# Official Valkey image is images.valkey → valkey/valkey:8.1.12
 
 # --- Option A: bundled Postgres + Valkey (default) ---
 # postgres.enabled: true
@@ -29,12 +29,9 @@ urls:
 #   databaseUrl: postgresql://user:pass@my-flexible-server.postgres.database.azure.com:5432/stackguard?sslmode=require
 #   redisUrl: rediss://:accesskey@my-cache.redis.cache.windows.net:6380/0
 
-# Pin image tags for production
+# Image tags are pinned in values.yaml. Override to upgrade, e.g.:
 # images:
 #   server:
 #     tag: "v1.1.1"
 #   dashboard:
 #     tag: "v1.1.1"
-#   valkey:
-#     repository: valkey/valkey
-#     tag: "8"

@@ -1,4 +1,0 @@
-{{/* VPA is intentionally not supported. StackGuard is monolithic (1 pod each). */}}
-{{- if and .Values.vpa .Values.vpa.enabled }}
-{{- fail "StackGuard does not support VPA/HPA autoscaling. Keep vpa.enabled=false and scale vertically (CPU/RAM + node size) only." }}
-{{- end }}

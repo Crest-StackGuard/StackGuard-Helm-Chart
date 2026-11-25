@@ -39,12 +39,17 @@ spec:
       labels:
         app: stackguard-valkey
         {{- include "stackguard.selectorLabels" . | nindent 8 }}
+        {{- include "stackguard.billingLabels" . | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       restartPolicy: Always
+      {{- with .Values.valkey.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: valkey
           image: {{ include "stackguard.image" (dict "ctx" $ "key" "valkey") }}

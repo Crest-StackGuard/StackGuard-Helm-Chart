@@ -1,6 +1,18 @@
 global:
   storageClass: managed-csi
 
-# StackGuard application runs only on Ubuntu-labeled nodes (set by AKS Terraform / os_sku=Ubuntu2204).
-application:
-  nodeSelector: {}
+# Our Terraform labels nodes stackguard.io/os=ubuntu (AKS Terraform / os_sku=Ubuntu2204).
+# To pin StackGuard to those nodes, uncomment. Leave it off on clusters
+# without that label, or pods stay Pending.
+# server:
+#   nodeSelector:
+#     stackguard.io/os: ubuntu
+# dashboard:
+#   nodeSelector:
+#     stackguard.io/os: ubuntu
+# postgres:
+#   nodeSelector:
+#     stackguard.io/os: ubuntu
+# valkey:
+#   nodeSelector:
+#     stackguard.io/os: ubuntu

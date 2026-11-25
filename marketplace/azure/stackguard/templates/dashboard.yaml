@@ -1,20 +1,4 @@
 {{- if .Values.dashboard.enabled }}
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: dashboard-data-pvc
-  namespace: {{ include "stackguard.namespace" . }}
-  labels:
-    {{- include "stackguard.labels" . | nindent 4 }}
-    app: stackguard-dashboard
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: {{ required "global.storageClass is required" .Values.global.storageClass | quote }}
-  resources:
-    requests:
-      storage: {{ .Values.dashboard.persistence.size }}
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,7 +10,6 @@ metadata:
   annotations:
     stackguard.io/scaling: "disabled"
     stackguard.io/replicas: "1"
-    stackguard.io/horizontal-scaling: "disabled"
 spec:
   # Monolithic: exactly one dashboard pod. Never scale out.
   replicas: 1
@@ -47,6 +30,10 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       restartPolicy: Always
+      {{- with .Values.dashboard.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: dashboard
           image: {{ include "stackguard.image" (dict "ctx" $ "key" "dashboard") }}
@@ -62,25 +49,7 @@ spec:
                   key: STACKGUARD_API_URL
           resources:
             {{- toYaml .Values.dashboard.resources | nindent 12 }}
-          livenessProbe:
-            tcpSocket:
-              port: {{ .Values.dashboard.service.port }}
-            initialDelaySeconds: 30
-            periodSeconds: 10
-            failureThreshold: 3
-          readinessProbe:
-            tcpSocket:
-              port: {{ .Values.dashboard.service.port }}
-            initialDelaySeconds: 10
-            periodSeconds: 5
-            failureThreshold: 3
-          volumeMounts:
-            - name: dashboard-data
-              mountPath: /data
-      volumes:
-        - name: dashboard-data
-          persistentVolumeClaim:
-            claimName: dashboard-data-pvc
+          {{- include "stackguard.tcpProbes" (dict "port" .Values.dashboard.service.port) | nindent 10 }}
 ---
 apiVersion: v1
 kind: Service
@@ -92,6 +61,7 @@ metadata:
     app: stackguard-dashboard
   {{- with .Values.dashboard.service.azureDnsLabel }}
   annotations:
+    # AKS only: publishes <label>.<region>.cloudapp.azure.com for this LoadBalancer.
     service.beta.kubernetes.io/azure-dns-label-name: {{ . | quote }}
   {{- end }}
 spec:

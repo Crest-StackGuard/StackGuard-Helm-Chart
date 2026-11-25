@@ -2,7 +2,7 @@
 
 Chart source for StackGuard. **Install guide:** [`../README.md`](../README.md)
 
-**Published:** `oci://public.ecr.aws/stackguard-io/stackguard:0.2.2`  
+**Published:** `oci://public.ecr.aws/stackguard-io/stackguard:0.3.0`  
 **Artifact Hub:** [artifacthub.io/packages/helm/stackguard/stackguard](https://artifacthub.io/packages/helm/stackguard/stackguard)
 
 ## Quick install
@@ -12,7 +12,7 @@ cp values.local.yaml.example values.local.yaml
 # edit secrets in values.local.yaml
 
 helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
-  --version 0.2.2 \
+  --version 0.3.0 \
   -f values.local.yaml \
   -f values-eks.yaml
 ```

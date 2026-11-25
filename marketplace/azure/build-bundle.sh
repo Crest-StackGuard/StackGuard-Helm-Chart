@@ -13,7 +13,7 @@ fi
 shift
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-image="mcr.microsoft.com/container-package-app:v1.0.0"
+image="mcr.microsoft.com/container-package-app:1.3.63"
 
 # The packaging tool ships linux/amd64 only; on Apple Silicon this runs under emulation.
 docker pull --platform linux/amd64 "${image}"

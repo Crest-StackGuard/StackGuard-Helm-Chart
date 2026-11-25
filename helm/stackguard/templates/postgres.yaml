@@ -39,15 +39,44 @@ spec:
       labels:
         app: stackguard-postgres
         {{- include "stackguard.selectorLabels" . | nindent 8 }}
+        {{- include "stackguard.billingLabels" . | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       restartPolicy: Always
+      {{- with .Values.postgres.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        # Postgres cannot open a data directory written by another major version.
+        # Fail fast with instructions instead of crash-looping the database.
+        - name: version-check
+          image: {{ include "stackguard.image" (dict "ctx" $ "key" "postgres") }}
+          imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -eu
+              f=/var/lib/postgresql/data/pgdata/PG_VERSION
+              [ -f "$f" ] || exit 0
+              have=$(cat "$f")
+              want=$(postgres --version | sed -E 's/[^0-9]*([0-9]+).*/\1/')
+              if [ "$have" != "$want" ]; then
+                echo "ERROR: the data volume holds PostgreSQL $have data but the image is PostgreSQL $want."
+                echo "Set the Postgres image tag back to a $have.x release, or dump and restore into $want."
+                echo "See 'Upgrading' in the StackGuard Helm README."
+                exit 1
+              fi
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
       containers:
         - name: postgres
-          image: {{ include "stackguard.image" (dict "image" .Values.images.postgres) }}
+          image: {{ include "stackguard.image" (dict "ctx" $ "key" "postgres") }}
           imagePullPolicy: {{ .Values.images.postgres.pullPolicy }}
           ports:
             - containerPort: {{ .Values.postgres.service.port }}
