@@ -15,12 +15,12 @@ To use **managed** Azure Database for PostgreSQL + **Azure Cache for Redis** (Re
 
 ## Map UI → code
 
-| UI field     | Offer      | Where                                                          |
-| ------------ | ---------- | -------------------------------------------------------------- |
-| App CPU      | A, B       | Helm `server.resources.requests.cpu` + `limits.cpu`            |
-| App RAM      | A, B       | Helm `server.resources.requests.memory` + `limits.memory`      |
-| App disk     | A, B       | Helm `server.persistence.size`                                 |
-| Node VM size | **B only** | AKS Terraform `node_vm_size`                                   |
+| UI field     | Offer      | Where                                                     |
+| ------------ | ---------- | --------------------------------------------------------- |
+| App CPU      | A, B       | Helm `server.resources.requests.cpu` + `limits.cpu`       |
+| App RAM      | A, B       | Helm `server.resources.requests.memory` + `limits.memory` |
+| App disk     | A, B       | Helm `server.persistence.size`                            |
+| Node VM size | **B only** | AKS Terraform `node_vm_size`                              |
 
 Example Helm overrides: [`../../helm/stackguard/values.marketplace.yaml.example`](../../helm/stackguard/values.marketplace.yaml.example)
 
@@ -34,12 +34,13 @@ helm install stackguard oci://public.ecr.aws/stackguard-io/stackguard \
 
 ## Fixed (not in UI)
 
-| Rule                    | Enforcement                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------- |
-| Monolithic (1 pod each) | Server, dashboard, Postgres, Valkey hard-locked to **1** replica (no HPA/VPA)   |
-| Autoscale off           | AKS node autoscaler default off; app pods never scale out                       |
-| Ubuntu only             | AKS `os_sku=Ubuntu2204`; Helm `*.nodeSelector` optional (off by default)        |
-| **Subscription ID**     | **IMDS only** (`169.254.169.254` + `Metadata: true`) — never Helm / Marketplace |
+| Rule                    | Enforcement                                                                                                                                                                                                               |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monolithic (1 pod each) | Server, dashboard, Postgres, Valkey hard-locked to **1** replica (no HPA/VPA)                                                                                                                                             |
+| Autoscale off           | AKS node autoscaler default off; app pods never scale out                                                                                                                                                                 |
+| Ubuntu only             | **Ubuntu nodes only — not Azure Linux compatible.** AKS `osSKU=Ubuntu` / `os_sku=Ubuntu2204`; Helm `*.nodeSelector` optional (off by default)                                                                             |
+| Azure DNS by default    | Uses Azure-provided DNS (`<label>-dashboard.<region>.cloudapp.azure.com` & `<label>-api.<region>.cloudapp.azure.com`). Custom domains are not collected in the Marketplace UI — configure manually post-deploy if needed. |
+| **Subscription ID**     | **IMDS only** (`169.254.169.254` + `Metadata: true`) — never Helm / Marketplace                                                                                                                                           |
 
 Confirm after install:
 
@@ -47,6 +48,31 @@ Confirm after install:
 kubectl logs -n stackguard -l app=stackguard-server --tail=50 | grep -E 'Azure detected|provider='
 # expect: Azure detected - ID: <subscriptionId>
 ```
+
+## Valkey / Redis permissions (Asynq)
+
+StackGuard uses **Asynq** (Pub/Sub + Lua scripts).
+
+- **In-cluster Valkey:** Configured automatically with `~* &* +@all` on both `default` and `$VALKEY_USER` (password required).
+- **Managed / external Redis or Valkey:** Grant your ACL user **`~* &* +@all`** (all keys, all Pub/Sub channels, all commands including `EVAL`/`EVALSHA`), otherwise Asynq fails with `NOPERM`.
+
+## Updating to a custom domain later
+
+By default, Marketplace deploys using Azure DNS (`<label>-dashboard.<region>.cloudapp.azure.com` and `<label>-api.<region>.cloudapp.azure.com`). To switch to your own domain later:
+
+1. Point your DNS records (A / CNAME) to the LoadBalancer IPs / Azure DNS names (`kubectl get svc -n stackguard`).
+2. Update the AKS cluster extension (or Helm release) with your URLs:
+   ```bash
+   az k8s-extension update \
+     --cluster-type managedClusters \
+     --cluster-name <aks-name> \
+     --resource-group <rg> \
+     --name stackguard \
+     --config urls.dashboard=https://app.yourdomain.com \
+     --config urls.api=https://api.yourdomain.com
+   ```
+   _(Or via Helm: `helm upgrade stackguard ... --set urls.dashboard=https://app.yourdomain.com --set urls.api=https://api.yourdomain.com`)_
+3. Restart `stackguard-server` and `stackguard-dashboard` if needed (`kubectl rollout restart deploy -n stackguard`).
 
 ## Build and publish the CNAB bundle
 

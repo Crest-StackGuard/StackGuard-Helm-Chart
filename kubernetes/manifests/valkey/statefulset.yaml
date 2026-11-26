@@ -28,7 +28,7 @@ spec:
             - -c
             - >-
               exec valkey-server --appendonly yes
-              --user default off
+              --user default on resetpass ">$VALKEY_PASSWORD" '~*' '&*' '+@all'
               --user "$VALKEY_USER" on ">$VALKEY_PASSWORD" '~*' '&*' '+@all'
           ports:
             - containerPort: 6379

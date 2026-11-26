@@ -107,13 +107,14 @@
                 "name": "vmSize",
                 "type": "Microsoft.Compute.SizeSelector",
                 "label": "VM size",
-                "toolTip": "Stackguard requests about 2 vCPU and 4 GiB of memory in total (limits up to 8 vCPU and 16 GiB). A single 4 vCPU node is enough to start; choose a larger size for heavier workloads.",
-                "recommendedSizes": ["Standard_D4s_v5", "Standard_D8s_v5"],
+                "defaultValue": "Standard_D16s_v5",
+                "toolTip": "Stackguard requests about 2 vCPU and 4 GiB of memory in total (limits up to 8 vCPU and 16 GiB). Default is a 16 vCPU node; choose a smaller or larger size as needed.",
+                "recommendedSizes": ["Standard_D16s_v5", "Standard_D8s_v5"],
                 "constraints": {
                   "allowedSizes": [
-                    "Standard_D4s_v5",
-                    "Standard_D8s_v5",
                     "Standard_D16s_v5",
+                    "Standard_D8s_v5",
+                    "Standard_D4s_v5",
                     "Standard_D4s_v4",
                     "Standard_D8s_v4",
                     "Standard_D16s_v4"
@@ -121,26 +122,6 @@
                   "excludedSizes": []
                 },
                 "osPlatform": "Linux"
-              },
-              {
-                "name": "osSKU",
-                "type": "Microsoft.Common.DropDown",
-                "label": "OS SKU",
-                "defaultValue": "AzureLinux",
-                "toolTip": "Linux OS SKU for the node pool.",
-                "constraints": {
-                  "allowedValues": [
-                    {
-                      "label": "AzureLinux",
-                      "value": "AzureLinux"
-                    },
-                    {
-                      "label": "Ubuntu",
-                      "value": "Ubuntu"
-                    }
-                  ],
-                  "required": true
-                }
               },
               {
                 "name": "enableAutoScaling",
@@ -255,11 +236,11 @@
               "password": "PostgreSQL password",
               "confirmPassword": "Confirm password"
             },
-            "toolTip": "Password for the bundled PostgreSQL database.",
+            "toolTip": "Password for the bundled PostgreSQL database. Must be 12-64 characters and include at least one letter.",
             "constraints": {
               "required": true,
-              "regex": "^[a-zA-Z0-9!@#$%^&*()_+\\-=]{12,64}$",
-              "validationMessage": "The password must be 12-64 characters long."
+              "regex": "^(?=.*[a-zA-Z])[a-zA-Z0-9!@#$%^&*()_+\\-=]{12,64}$",
+              "validationMessage": "The password must be 12-64 characters long and include at least one letter (cannot be numbers only)."
             },
             "options": {
               "hideConfirmation": false
@@ -273,11 +254,11 @@
               "password": "Valkey cache password",
               "confirmPassword": "Confirm password"
             },
-            "toolTip": "Password for the bundled Valkey (Redis-compatible) cache. Official image: valkey/valkey.",
+            "toolTip": "Password for the bundled Valkey (Redis-compatible) cache. Official image: valkey/valkey. Must be 12-64 characters and include at least one letter.",
             "constraints": {
               "required": true,
-              "regex": "^[a-zA-Z0-9!@#$%^&*()_+\\-=]{12,64}$",
-              "validationMessage": "The password must be 12-64 characters long."
+              "regex": "^(?=.*[a-zA-Z])[a-zA-Z0-9!@#$%^&*()_+\\-=]{12,64}$",
+              "validationMessage": "The password must be 12-64 characters long and include at least one letter (cannot be numbers only)."
             },
             "options": {
               "hideConfirmation": false
@@ -290,7 +271,7 @@
             "visible": true,
             "options": {
               "icon": "Info",
-              "text": "Stackguard publishes the dashboard and API on Azure DNS names (<label>-dashboard.<region>.cloudapp.azure.com and <label>-api.<region>.cloudapp.azure.com). Leave the fields below empty to use them, or enter custom URLs if you will point your own domain at the services."
+              "text": "Stackguard publishes the dashboard and API on Azure DNS names (<label>-dashboard.<region>.cloudapp.azure.com and <label>-api.<region>.cloudapp.azure.com) by default. If you want a custom domain, configure it manually after deployment."
             }
           },
           {
@@ -304,30 +285,6 @@
               "regex": "^$|^[a-z][a-z0-9-]{1,40}[a-z0-9]$",
               "validationMessage": "Use 3-42 lowercase letters, digits or hyphens, starting with a letter."
             }
-          },
-          {
-            "name": "dashboardUrl",
-            "type": "Microsoft.Common.TextBox",
-            "label": "Dashboard URL",
-            "defaultValue": "",
-            "toolTip": "Optional. Public URL of the Stackguard dashboard if you use your own domain.",
-            "constraints": {
-              "required": false,
-              "regex": "^$|^https?://.{1,200}$",
-              "validationMessage": "Enter a valid http or https URL."
-            }
-          },
-          {
-            "name": "apiUrl",
-            "type": "Microsoft.Common.TextBox",
-            "label": "API URL",
-            "defaultValue": "",
-            "toolTip": "Optional. Public URL of the Stackguard API server if you use your own domain.",
-            "constraints": {
-              "required": false,
-              "regex": "^$|^https?://.{1,200}$",
-              "validationMessage": "Enter a valid http or https URL."
-            }
           }
         ]
       }
@@ -339,7 +296,6 @@
       "kubernetesVersion": "[steps('clusterDetails').newClusterSection.kubernetesVersion]",
       "extensionResourceName": "[steps('applicationDetails').extensionResourceName]",
       "vmSize": "[steps('clusterDetails').newClusterSection.vmSize]",
-      "osSKU": "[steps('clusterDetails').newClusterSection.osSKU]",
       "vmEnableAutoScale": "[steps('clusterDetails').newClusterSection.enableAutoScaling]",
       "vmCount": "[steps('clusterDetails').newClusterSection.vmCount]",
       "app-storageClass": "[steps('applicationDetails').storageClass]",
@@ -347,8 +303,6 @@
       "app-stackguardSecret": "[steps('applicationDetails').stackguardSecret]",
       "app-postgresPassword": "[steps('applicationDetails').postgresPassword]",
       "app-valkeyPassword": "[steps('applicationDetails').valkeyPassword]",
-      "app-dashboardUrl": "[steps('applicationDetails').dashboardUrl]",
-      "app-apiUrl": "[steps('applicationDetails').apiUrl]",
       "app-dnsLabel": "[steps('applicationDetails').dnsLabel]"
     }
   }
