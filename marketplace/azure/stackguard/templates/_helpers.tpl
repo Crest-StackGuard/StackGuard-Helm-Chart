@@ -87,7 +87,8 @@ azure-extensions-usage-release-identifier: {{ .Release.Name | quote }}
 {{- if .Values.secrets.databaseUrl -}}
 {{- .Values.secrets.databaseUrl -}}
 {{- else if .Values.postgres.enabled -}}
-{{- printf "postgresql://%s:%s@stackguard-postgres:5432/%s?sslmode=disable" .Values.secrets.postgres.user .Values.secrets.postgres.password .Values.secrets.postgres.database -}}
+{{- /* toString + urlquery: keep passwords as strings and URL-safe in DSN */ -}}
+{{- printf "postgresql://%s:%s@stackguard-postgres:5432/%s?sslmode=disable" (.Values.secrets.postgres.user | toString | urlquery) (.Values.secrets.postgres.password | toString | urlquery) (.Values.secrets.postgres.database | toString | urlquery) -}}
 {{- else -}}
 {{- fail "postgres.enabled is false — set secrets.databaseUrl to your managed or external Postgres URL" -}}
 {{- end -}}
@@ -97,7 +98,7 @@ azure-extensions-usage-release-identifier: {{ .Release.Name | quote }}
 {{- if .Values.secrets.redisUrl -}}
 {{- .Values.secrets.redisUrl -}}
 {{- else if .Values.valkey.enabled -}}
-{{- printf "redis://%s:%s@stackguard-valkey:%v/0" .Values.secrets.valkey.user .Values.secrets.valkey.password .Values.valkey.service.port -}}
+{{- printf "redis://%s:%s@stackguard-valkey:%v/0" (.Values.secrets.valkey.user | toString | urlquery) (.Values.secrets.valkey.password | toString | urlquery) .Values.valkey.service.port -}}
 {{- else -}}
 {{- fail "valkey.enabled is false — set secrets.redisUrl to your managed Redis-compatible cache URL" -}}
 {{- end -}}

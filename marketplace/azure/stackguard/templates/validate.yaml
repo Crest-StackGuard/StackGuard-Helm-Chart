@@ -12,3 +12,18 @@
 {{- if and .Values.vpa .Values.vpa.enabled }}
 {{- fail "StackGuard does not support autoscaling (VPA/HPA). Keep vpa.enabled=false. Scale vertically only." }}
 {{- end }}
+{{/*
+  Prevent numeric-only / integer passwords (Helm --set coerces digits to int64).
+*/}}
+{{- if and .Values.postgres.enabled (not .Values.secrets.databaseUrl) .Values.secrets.postgres.password }}
+{{- $pgPw := .Values.secrets.postgres.password }}
+{{- if or (not (kindIs "string" $pgPw)) (regexMatch "^[0-9]+$" ($pgPw | toString)) }}
+{{- fail "secrets.postgres.password must be a string containing at least one non-digit character (numbers-only / integer passwords are not allowed)." }}
+{{- end }}
+{{- end }}
+{{- if and .Values.valkey.enabled (not .Values.secrets.redisUrl) .Values.secrets.valkey.password }}
+{{- $vkPw := .Values.secrets.valkey.password }}
+{{- if or (not (kindIs "string" $vkPw)) (regexMatch "^[0-9]+$" ($vkPw | toString)) }}
+{{- fail "secrets.valkey.password must be a string containing at least one non-digit character (numbers-only / integer passwords are not allowed)." }}
+{{- end }}
+{{- end }}

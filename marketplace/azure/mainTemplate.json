@@ -80,7 +80,7 @@
     },
     "vmSize": {
       "type": "string",
-      "defaultValue": "Standard_D4s_v5",
+      "defaultValue": "Standard_D16s_v5",
       "metadata": {
         "description": "VM size for the AKS node pool."
       }
@@ -122,8 +122,8 @@
     },
     "osSKU": {
       "type": "string",
-      "defaultValue": "AzureLinux",
-      "allowedValues": ["AzureLinux", "Ubuntu"]
+      "defaultValue": "Ubuntu",
+      "allowedValues": ["Ubuntu"]
     },
     "enableFIPS": {
       "type": "bool",
